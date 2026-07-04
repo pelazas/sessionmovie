@@ -5,6 +5,7 @@ Every bundled asset (music, SFX, sprites) must be CC0 and listed here — same P
 | Asset | Type | Source | License | Used in |
 |---|---|---|---|---|
 | `music-cyber-runner.ogg` — "Cyber Runner" by ansimuz | music | https://opengameart.org/content/cyber-runner-music | CC0 1.0 (license shown on asset page) | classic pack music bed |
+| `music-battle-theme-a.mp3` — "Battle Theme A" by cynicmusic | music | https://opengameart.org/content/battle-theme-a | CC0 1.0 (license shown on asset page) | quest pack music bed |
 | `sfx-key-thock.ogg` — `impactSoft_medium_000.ogg` from Kenney "Impact Sounds" | SFX | https://kenney.nl/assets/impact-sounds | CC0 1.0 (stated on asset page and in License.txt inside the pack) | keyboard thock (title typing) |
 | `sfx-chip-tick.ogg` — `tick_004.ogg` from Kenney "Interface Sounds" | SFX | https://kenney.nl/assets/interface-sounds | CC0 1.0 (stated on asset page and in License.txt inside the pack) | tool-chip landing tick |
 | `sfx-fail-thud.ogg` — `impactPunch_heavy_000.ogg` from Kenney "Impact Sounds" | SFX | https://kenney.nl/assets/impact-sounds | CC0 1.0 (stated on asset page and in License.txt inside the pack) | showcase verdict=fail (record-scratch/thud) |
