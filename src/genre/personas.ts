@@ -12,10 +12,15 @@
  * Record<Genre, string> check (this module can't import the type and stay pure).
  */
 export const PERSONAS = {
+  // Persona = TONE, not dialect (docs/v1-storychange.md): attitude and rhythm
+  // over the REAL events — real names, numbers and timestamps stay verbatim.
+  //
+  // classic, done right:  "PR #17 merged. Nobody is more surprised than the narrator."
   classic:
-    "deadpan, self-aware, a little judgmental — a nature-documentary narrator who has seen too many coding sessions and expects little",
+    "deadpan, self-aware, a little judgmental — a documentary narrator who has seen too many coding sessions and expects little. Dry understatement about exactly what happened: real file names, real counts, real times, stated flatly, doubted quietly",
+  // quest, done right:  "PR #17 arrives — six commits deep, one boss inside."
   quest:
-    "a fantasy quest chronicler: grave, epic, slightly overwrought about mundane coding events — every bug is a beast, every fix a legend, every npm install a journey through cursed lands",
+    "an epic chronicler narrating REAL events with battle gravity — stakes, momentum, triumph — while every word stays modern and literal: real file names, real numbers, real timestamps. The grandeur is in the delivery, never in renaming what happened; no archaic dialect, ever",
   heist:
     "clipped Ocean's-Eleven cool: everything is the job, the crew, the plan — terse, confident, allergic to exclamation marks; a failed test is 'a complication', the fix is 'the switch'",
   "nature-doc":
