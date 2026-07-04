@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { AbsoluteFill, Easing, Sequence, interpolate, useCurrentFrame } from "remotion";
 import { EASE_BACK_OUT, EASE_OUT } from "../../../easing";
 import { showcaseSchedule } from "../../../timing";
-import { cameraDrift, flash, freezeSlam, shake } from "../../../effects";
+import { SLAM_HOLD, cameraDrift, flash, freezeSlam, shake } from "../../../effects";
 import { CornerMascot } from "../../../characters/CornerMascot";
 import type { DiffArtifact, ShowcaseScene, TestRunArtifact } from "../../../screenplay";
 import { theme } from "../../../theme";
@@ -253,9 +253,14 @@ const DiffPanel: React.FC<{
 }> = ({ scene, artifact, durationInFrames }) => {
   const realFrame = useCurrentFrame();
   const lines = useMemo(() => parseSnippet(artifact.snippet), [artifact.snippet]);
+  // When a focus slam will freeze the clock for SLAM_HOLD frames, budget the
+  // collapse→type arc against the shortened effective duration so post-focus
+  // typing still finishes before the verdict (which stays on the REAL clock).
+  const scheduleBudget =
+    scene.focus !== undefined ? durationInFrames - SLAM_HOLD : durationInFrames;
   const { schedule, collapseDur } = useMemo(
-    () => buildSchedule(lines, durationInFrames),
-    [lines, durationInFrames],
+    () => buildSchedule(lines, scheduleBudget),
+    [lines, scheduleBudget],
   );
   const focused = (i: number) =>
     scene.focus !== undefined && i >= scene.focus.start && i <= scene.focus.end;

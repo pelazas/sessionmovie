@@ -8,7 +8,12 @@ import { actionSchedule, sceneFrames, showcaseSchedule, titleSchedule } from "..
 // feat/effects additive kinds: whoosh (scene cuts), drone (action fail
 // streak), stinger (stats open). Cue derivation stays schedule-driven.
 export type SfxKind = "thock" | "tick" | "fail" | "pass" | "whoosh" | "drone" | "stinger";
-export type SfxCue = { kind: SfxKind; frame: number };
+export type SfxCue = {
+  kind: SfxKind;
+  frame: number;
+  /** Clamp playback to this many frames (long assets must not bleed across cuts). */
+  maxFrames?: number;
+};
 
 export { sceneCutFrames } from "../timing";
 
@@ -47,7 +52,9 @@ const actionCues = (
     (e, i) => e.ok === false && scene.events[i + 1]?.ok === false,
   );
   if (streakStart >= 0) {
-    cues.push({ kind: "drone", frame: start + Math.round(chipLanded(streakStart)) });
+    const droneFrame = start + Math.round(chipLanded(streakStart));
+    // The 5s drone must die at the scene cut, not bleed into the next scene.
+    cues.push({ kind: "drone", frame: droneFrame, maxFrames: start + durationInFrames - droneFrame });
   }
   return cues;
 };
@@ -59,9 +66,9 @@ export const collectCues = (screenplay: Screenplay, fps: number): SfxCue[] => {
   for (const [index, scene] of screenplay.scenes.entries()) {
     const frames = sceneFrames(scene, fps);
     // feat/effects: transition whoosh at every scene handoff (matches the
-    // 2-frame visual transition in PackComposition), end stinger when the
+    // 4-frame visual transition in PackComposition), end stinger when the
     // stats card opens. Both derive from the same frame math as the picture.
-    if (index > 0) cues.push({ kind: "whoosh", frame: start - 2 });
+    if (index > 0) cues.push({ kind: "whoosh", frame: start }); // matches the flash peak on the cut
     switch (scene.type) {
       case "title":
         cues.push(...titleCues(scene, start, frames));

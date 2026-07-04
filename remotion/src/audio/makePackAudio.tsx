@@ -123,8 +123,25 @@ export const makePackAudio = ({
       <>
         <Audio src={staticFile(track)} startFrom={musicStartFrom} volume={musicVolume} />
         {cues.map((cue, i) => (
-          <Sequence key={i} from={cue.frame} layout="none" name={`sfx-${cue.kind}`}>
-            <Audio src={staticFile(sfx[cue.kind])} volume={() => sfxVolumes[cue.kind]} />
+          <Sequence
+            key={i}
+            from={cue.frame}
+            {...(cue.maxFrames !== undefined ? { durationInFrames: Math.max(1, cue.maxFrames) } : {})}
+            layout="none"
+            name={`sfx-${cue.kind}`}
+          >
+            <Audio
+              src={staticFile(sfx[cue.kind])}
+              volume={(f) =>
+                cue.maxFrames !== undefined
+                  ? sfxVolumes[cue.kind] *
+                    interpolate(f, [cue.maxFrames - 8, cue.maxFrames], [1, 0], {
+                      extrapolateLeft: "clamp",
+                      extrapolateRight: "clamp",
+                    })
+                  : sfxVolumes[cue.kind]
+              }
+            />
           </Sequence>
         ))}
         {/* ── voiceover integration block, playback (feat/voiceover) ── */}
