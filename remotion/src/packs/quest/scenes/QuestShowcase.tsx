@@ -5,6 +5,7 @@ import type { ShowcaseScene } from "../../../screenplay";
 import { showcaseSchedule } from "../../../timing";
 import { cameraDrift, flash, shake } from "../../../effects";
 import { Caption } from "../../Caption";
+import { ClockChip } from "../../ClockChip";
 import { Monster } from "../Monster";
 import { quest } from "../theme";
 import { AbstractDiff } from "../../classic/scenes/Showcase";
@@ -221,6 +222,7 @@ export const QuestShowcase: React.FC<{
           }}
         />
       ) : null}
+      <ClockChip color={quest.textDim} background={quest.panel} border={quest.panelBorder} />
       {caption ? <Caption text={caption} opacity={captionOpacity} /> : null}
     </AbsoluteFill>
   );

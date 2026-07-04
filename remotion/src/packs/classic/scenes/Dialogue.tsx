@@ -7,6 +7,7 @@ import type { DialogueScene } from "../../../screenplay";
 import type { Emotion } from "../../../screenplay";
 import { theme } from "../../../theme";
 import { Caption } from "../../Caption";
+import { ClockChip } from "../../ClockChip";
 
 // The characters' main stage: both puppets stand at the bottom (user left/
 // blue, claude right/purple) while speech bubbles pop in above them. The
@@ -193,6 +194,8 @@ export const Dialogue: React.FC<{
       >
         {puppet("claude")}
       </div>
+
+      <ClockChip />
 
       {caption ? <Caption text={caption} opacity={captionIn} /> : null}
     </AbsoluteFill>

@@ -1,5 +1,6 @@
 import { AbsoluteFill, Series, useCurrentFrame, useVideoConfig } from "remotion";
 import type { VoiceoverManifest } from "../../../src/voiceover/types";
+import { SceneTimeContext } from "./ClockChip";
 import { sceneLocalCue } from "./voiceoverSync";
 import type { Scene, Screenplay } from "../screenplay";
 import { flash } from "../effects";
@@ -64,9 +65,9 @@ export const makePackComposition = (pack: GenrePack): React.FC<Screenplay> => {
   };
   // ── end scene-transitions block ────────────────────────────────────────────
 
-  const PackComposition: React.FC<Screenplay & { voiceover?: VoiceoverManifest }> = (
-    screenplay,
-  ) => {
+  const PackComposition: React.FC<
+    Screenplay & { voiceover?: VoiceoverManifest; sceneTimes?: (string | null)[] }
+  > = (screenplay) => {
     const { fps } = useVideoConfig();
     return (
       <AbsoluteFill style={{ backgroundColor: pack.background }}>
@@ -80,7 +81,11 @@ export const makePackComposition = (pack: GenrePack): React.FC<Screenplay> => {
             return (
               <Series.Sequence key={i} durationInFrames={frames}>
                 <VoiceoverCueContext.Provider value={cue ? sceneLocalCue(cue, scene, fps) : null}>
-                  <SceneRenderer scene={scene} screenplay={screenplay} durationInFrames={frames} />
+                  {/* sceneTimes sidecar (feat/text-economy): pre-formatted
+                      HH:MM per scene, or null — ClockChip consumes it. */}
+                  <SceneTimeContext.Provider value={screenplay.sceneTimes?.[i] ?? null}>
+                    <SceneRenderer scene={scene} screenplay={screenplay} durationInFrames={frames} />
+                  </SceneTimeContext.Provider>
                 </VoiceoverCueContext.Provider>
               </Series.Sequence>
             );

@@ -5,6 +5,7 @@ import { cameraDrift } from "../../../effects";
 import type { DialogueScene, Emotion } from "../../../screenplay";
 import { dialogueSchedule } from "../../../timing";
 import { Caption } from "../../Caption";
+import { ClockChip } from "../../ClockChip";
 import { quest } from "../theme";
 
 /**
@@ -171,6 +172,8 @@ export const QuestDialogue: React.FC<{
       >
         <Mascot character="agent" emotion={lastEmotion("claude")} pose="idle" size={270} seed="quest-fire-agent" />
       </div>
+
+      <ClockChip color={quest.textDim} background={quest.panel} border={quest.panelBorder} />
 
       {caption ? <Caption text={caption} opacity={captionIn} /> : null}
     </AbsoluteFill>
