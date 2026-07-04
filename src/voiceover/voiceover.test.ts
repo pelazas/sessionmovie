@@ -80,6 +80,7 @@ test("manifest: captionless scenes get no cue; fit-rule overflow is skipped with
         absolutePath: `/tmp/${text.length}.mp3`,
         publicPath: `voiceover-cache/${text.length}.mp3`,
         timestampsPath: `/tmp/${text.length}.timestamps.json`,
+        timestampsPublicPath: "voiceover-cache/mock.timestamps.json",
         apiCalled: true,
       }),
       readAlignment: () => null,
@@ -107,7 +108,8 @@ test("manifest: cache hits are counted, not re-synthesized", async () => {
       synthesizeCue: async () => ({
         absolutePath: "/tmp/x.mp3",
         publicPath: "voiceover-cache/x.mp3",
-        timestampsPath: "/tmp/x.timestamps.json",
+        timestampsPath: "voiceover-cache/mock.timestamps.json",
+        timestampsPublicPath: "voiceover-cache/mock.timestamps.json",
         apiCalled: false,
       }),
       probe: () => 2,
@@ -123,7 +125,8 @@ test("manifest: cues carry text, sidecar path, and precomputed word timings", as
     synthesizeCue: async () => ({
       absolutePath: "/tmp/x.mp3",
       publicPath: "voiceover-cache/x.mp3",
-      timestampsPath: "/tmp/x.timestamps.json",
+      timestampsPath: "voiceover-cache/mock.timestamps.json",
+        timestampsPublicPath: "voiceover-cache/mock.timestamps.json",
       apiCalled: false,
     }),
     probe: () => 1,
@@ -135,7 +138,7 @@ test("manifest: cues carry text, sidecar path, and precomputed word timings", as
   });
   const cue = manifest.cues[0];
   assert.equal(cue?.text, "hi you");
-  assert.equal(cue?.timestampsFile, "/tmp/x.timestamps.json");
+  assert.equal(cue?.timestampsFile, "voiceover-cache/mock.timestamps.json");
   assert.deepEqual(cue?.words, [
     { word: "hi", startSec: 0, endSec: 0.2 },
     { word: "you", startSec: 0.3, endSec: 0.6 },
@@ -147,7 +150,8 @@ test("manifest: a corrupt/missing sidecar degrades to words: [] (no highlight)",
     synthesizeCue: async () => ({
       absolutePath: "/tmp/x.mp3",
       publicPath: "voiceover-cache/x.mp3",
-      timestampsPath: "/tmp/x.timestamps.json",
+      timestampsPath: "voiceover-cache/mock.timestamps.json",
+        timestampsPublicPath: "voiceover-cache/mock.timestamps.json",
       apiCalled: false,
     }),
     probe: () => 1,
@@ -176,7 +180,8 @@ test("manifest: genre option swaps the synthesis voice; omitted keeps config", a
       return {
         absolutePath: "/tmp/x.mp3",
         publicPath: "voiceover-cache/x.mp3",
-        timestampsPath: "/tmp/x.timestamps.json",
+        timestampsPath: "voiceover-cache/mock.timestamps.json",
+        timestampsPublicPath: "voiceover-cache/mock.timestamps.json",
         apiCalled: false,
       };
     },
