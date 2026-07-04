@@ -7,17 +7,9 @@ import { collectCues, sceneCutFrames, type SfxKind } from "./events";
 // ── voiceover integration block, types (feat/voiceover) ─────────────────────
 // Renderer-side extension ONLY: the manifest is a sidecar in the composition
 // input props (built pre-render by the CLI; docs/audio.md forbids network in
-// compositions). The screenplay IR itself stays frozen — mirrors
-// src/voiceover/manifest.ts.
-export interface VoiceoverCue {
-  sceneIndex: number;
-  /** Path relative to public/ — fed to staticFile(). */
-  file: string;
-  durationSec: number;
-}
-export interface VoiceoverManifest {
-  cues: VoiceoverCue[];
-}
+// compositions). The screenplay IR stays frozen. Types are type-only imports
+// from the single source of truth — never re-declared (the PR #1 lesson).
+import type { VoiceoverManifest } from "../../../src/voiceover/types";
 const VOICEOVER_VOLUME = 1.0;
 const VO_DUCK_FACTOR = 0.25; // music multiplier under active narration
 const VO_DUCK_RAMP = 6; // frames to ramp in/out of the duck

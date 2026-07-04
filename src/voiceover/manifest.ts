@@ -16,17 +16,8 @@ import { remotionDir } from "../cli/workspace.js";
 import { getOrSynthesize } from "./cache.js";
 import type { TTSConfig } from "./tts.js";
 
-export interface VoiceoverCue {
-  /** Index into screenplay.scenes. */
-  sceneIndex: number;
-  /** Path relative to remotion/public/ — feed straight to staticFile(). */
-  file: string;
-  durationSec: number;
-}
-
-export interface VoiceoverManifest {
-  cues: VoiceoverCue[];
-}
+import type { VoiceoverCue, VoiceoverManifest } from "./types.js";
+export type { VoiceoverCue, VoiceoverManifest } from "./types.js";
 
 export interface ManifestStats {
   manifest: VoiceoverManifest;
