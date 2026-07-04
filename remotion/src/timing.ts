@@ -153,7 +153,9 @@ export interface StatsSchedule {
 
 export const statsSchedule = (scene: StatsScene, durationInFrames: number): StatsSchedule => {
   const countsStart = 20;
-  const achievementsStart = 90;
+  // Fixed 90 starved short stats scenes (a 3s scene never showed its trophies);
+  // identical to the old constant for scenes of ~6.7s and longer.
+  const achievementsStart = Math.min(90, Math.round(durationInFrames * 0.45));
   const gradeStart = Math.min(
     durationInFrames - 60,
     achievementsStart + scene.achievements.length * 15 + 25,
