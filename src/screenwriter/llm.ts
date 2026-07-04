@@ -21,7 +21,7 @@ import type { Timeline } from "../parser/types.js";
 import { digestTimeline } from "./digest.js";
 import { writeScreenplay as writeScreenplayHeuristic } from "./heuristic.js";
 
-export const PROMPT_VERSION = "v1";
+export const PROMPT_VERSION = "v2";
 
 const DEFAULT_TARGET_DURATION_SEC = 50;
 const DEFAULT_MAX_ATTEMPTS = 3;
