@@ -11,14 +11,44 @@
  * (docs/audio.md hard rule; keeps renders deterministic and Lambda-viable).
  */
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { captionInFrame, sceneFrames } from "../../remotion/src/timing.js";
+import type { Genre } from "../genre/rules.js";
 import type { Screenplay } from "../screenplay/schema.js";
 import { remotionDir } from "../cli/workspace.js";
 import { getOrSynthesize } from "./cache.js";
-import type { TTSConfig } from "./tts.js";
+import { wordsFromAlignment } from "./sync.js";
+import { DEFAULT_VOICE_ID, type TTSConfig } from "./tts.js";
 
-import type { VoiceoverCue, VoiceoverManifest } from "./types.js";
+import type { CharacterAlignment, VoiceoverCue, VoiceoverManifest } from "./types.js";
 export type { VoiceoverCue, VoiceoverManifest } from "./types.js";
+
+// ── per-genre voices (docs/audio.md: voice choice is a genre property) ──────
+/** Daniel — deep, authoritative broadcast delivery; the quest narrator. */
+export const QUEST_VOICE_ID = "onwK4e9ZLuTAKqWW03F9";
+
+/**
+ * Stock-voice defaults per genre. Only classic (George) and quest (Daniel)
+ * are curated so far; the rest inherit classic's narrator until their packs
+ * ship. All ElevenLabs premade voices — no clones (docs/audio.md ethics).
+ */
+export const VOICE_BY_GENRE: Record<Genre, string> = {
+  classic: DEFAULT_VOICE_ID,
+  quest: QUEST_VOICE_ID,
+  horror: DEFAULT_VOICE_ID,
+  heist: DEFAULT_VOICE_ID,
+  "nature-doc": DEFAULT_VOICE_ID,
+};
+
+/**
+ * Voice for a genre. Precedence: ELEVENLABS_VOICE_ID (the existing global
+ * force-this-voice knob) → ELEVENLABS_VOICE_<GENRE> (e.g. …_QUEST,
+ * …_NATURE_DOC) → the map above.
+ */
+export function voiceForGenre(genre: Genre, env: NodeJS.ProcessEnv = process.env): string {
+  const perGenre = env[`ELEVENLABS_VOICE_${genre.toUpperCase().replace(/-/g, "_")}`];
+  return env["ELEVENLABS_VOICE_ID"] ?? perGenre ?? VOICE_BY_GENRE[genre];
+}
 
 export interface ManifestStats {
   manifest: VoiceoverManifest;
@@ -69,9 +99,27 @@ export function probeDurationSec(absolutePath: string): number {
 export interface BuildManifestOptions {
   refresh?: boolean;
   log?: (message: string) => void;
+  /**
+   * Genre whose voice narrates (voiceForGenre). Omitted → config.voiceId is
+   * used untouched, exactly the pre-genre behavior.
+   */
+  genre?: Genre;
+  /** Env for voice overrides — injectable for tests. */
+  env?: NodeJS.ProcessEnv;
   /** Injectable for tests — defaults to the real cache+API path. */
   synthesizeCue?: typeof getOrSynthesize;
   probe?: typeof probeDurationSec;
+  /** Injectable for tests — defaults to reading the sidecar JSON from disk. */
+  readAlignment?: (timestampsPath: string) => CharacterAlignment | null;
+}
+
+/** Default sidecar reader; a missing/corrupt sidecar degrades to no-highlight. */
+function readAlignmentFile(timestampsPath: string): CharacterAlignment | null {
+  try {
+    return JSON.parse(readFileSync(timestampsPath, "utf8")) as CharacterAlignment | null;
+  } catch {
+    return null;
+  }
 }
 
 /** Build the manifest for a validated screenplay. Throws on API failure. */
@@ -83,6 +131,11 @@ export async function buildVoiceoverManifest(
   const log = options.log ?? ((m: string) => process.stderr.write(`${m}\n`));
   const synthesizeCue = options.synthesizeCue ?? getOrSynthesize;
   const probe = options.probe ?? probeDurationSec;
+  const readAlignment = options.readAlignment ?? readAlignmentFile;
+  // Genre voice only when a genre was passed — otherwise config is untouched.
+  const effectiveConfig: TTSConfig = options.genre
+    ? { ...config, voiceId: voiceForGenre(options.genre, options.env ?? process.env) }
+    : config;
 
   const cues: VoiceoverCue[] = [];
   const skipped: ManifestStats["skipped"] = [];
@@ -94,7 +147,7 @@ export async function buildVoiceoverManifest(
     if (!text) continue;
 
     const refreshOption = options.refresh !== undefined ? { refresh: options.refresh } : {};
-    const cached = await synthesizeCue(text, config, refreshOption);
+    const cached = await synthesizeCue(text, effectiveConfig, refreshOption);
     if (cached.apiCalled) apiCalls++;
     else cacheHits++;
 
@@ -108,7 +161,16 @@ export async function buildVoiceoverManifest(
       skipped.push({ sceneIndex, reason });
       continue;
     }
-    cues.push({ sceneIndex, file: cached.publicPath, durationSec });
+    // Word timings ride in the manifest precomputed — the renderer only ever
+    // does per-frame lookups (no runtime parsing inside compositions).
+    cues.push({
+      sceneIndex,
+      file: cached.publicPath,
+      durationSec,
+      text,
+      timestampsFile: cached.timestampsPath,
+      words: wordsFromAlignment(readAlignment(cached.timestampsPath)),
+    });
   }
 
   return { manifest: { cues }, apiCalls, cacheHits, skipped };

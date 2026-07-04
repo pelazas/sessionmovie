@@ -79,8 +79,10 @@ test("manifest: captionless scenes get no cue; fit-rule overflow is skipped with
       synthesizeCue: async (text) => ({
         absolutePath: `/tmp/${text.length}.mp3`,
         publicPath: `voiceover-cache/${text.length}.mp3`,
+        timestampsPath: `/tmp/${text.length}.timestamps.json`,
         apiCalled: true,
       }),
+      readAlignment: () => null,
       // dialogue targetSec 10 → caption at 70% → 3s window × 0.9 = 2.7s limit:
       // first caption 2s (fits), third 12s (skipped)
       probe: (path) => (path.includes("13") ? 2 : 12),
@@ -105,11 +107,84 @@ test("manifest: cache hits are counted, not re-synthesized", async () => {
       synthesizeCue: async () => ({
         absolutePath: "/tmp/x.mp3",
         publicPath: "voiceover-cache/x.mp3",
+        timestampsPath: "/tmp/x.timestamps.json",
         apiCalled: false,
       }),
       probe: () => 2,
+      readAlignment: () => null,
     },
   );
   assert.equal(apiCalls, 0);
   assert.equal(cacheHits, 1);
+});
+
+test("manifest: cues carry text, sidecar path, and precomputed word timings", async () => {
+  const { manifest } = await buildVoiceoverManifest(screenplayWith(["hi you"]), CONFIG, {
+    synthesizeCue: async () => ({
+      absolutePath: "/tmp/x.mp3",
+      publicPath: "voiceover-cache/x.mp3",
+      timestampsPath: "/tmp/x.timestamps.json",
+      apiCalled: false,
+    }),
+    probe: () => 1,
+    readAlignment: () => ({
+      characters: ["h", "i", " ", "y", "o", "u"],
+      character_start_times_seconds: [0, 0.1, 0.2, 0.3, 0.4, 0.5],
+      character_end_times_seconds: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6],
+    }),
+  });
+  const cue = manifest.cues[0];
+  assert.equal(cue?.text, "hi you");
+  assert.equal(cue?.timestampsFile, "/tmp/x.timestamps.json");
+  assert.deepEqual(cue?.words, [
+    { word: "hi", startSec: 0, endSec: 0.2 },
+    { word: "you", startSec: 0.3, endSec: 0.6 },
+  ]);
+});
+
+test("manifest: a corrupt/missing sidecar degrades to words: [] (no highlight)", async () => {
+  const { manifest } = await buildVoiceoverManifest(screenplayWith(["hi"]), CONFIG, {
+    synthesizeCue: async () => ({
+      absolutePath: "/tmp/x.mp3",
+      publicPath: "voiceover-cache/x.mp3",
+      timestampsPath: "/tmp/x.timestamps.json",
+      apiCalled: false,
+    }),
+    probe: () => 1,
+    readAlignment: () => null,
+  });
+  assert.deepEqual(manifest.cues[0]?.words, []);
+});
+
+test("voiceForGenre: map defaults, per-genre env override, global env wins", async () => {
+  const { voiceForGenre, VOICE_BY_GENRE, QUEST_VOICE_ID } = await import("./manifest.js");
+  assert.equal(voiceForGenre("classic", {}), VOICE_BY_GENRE.classic);
+  assert.equal(voiceForGenre("quest", {}), QUEST_VOICE_ID);
+  assert.equal(voiceForGenre("quest", { ELEVENLABS_VOICE_QUEST: "v-q" }), "v-q");
+  assert.equal(voiceForGenre("nature-doc", { ELEVENLABS_VOICE_NATURE_DOC: "v-n" }), "v-n");
+  assert.equal(
+    voiceForGenre("quest", { ELEVENLABS_VOICE_QUEST: "v-q", ELEVENLABS_VOICE_ID: "v-all" }),
+    "v-all",
+  );
+});
+
+test("manifest: genre option swaps the synthesis voice; omitted keeps config", async () => {
+  const voices: string[] = [];
+  const mock = {
+    synthesizeCue: async (_text: string, cfg: TTSConfig) => {
+      voices.push(cfg.voiceId);
+      return {
+        absolutePath: "/tmp/x.mp3",
+        publicPath: "voiceover-cache/x.mp3",
+        timestampsPath: "/tmp/x.timestamps.json",
+        apiCalled: false,
+      };
+    },
+    probe: () => 1,
+    readAlignment: () => null,
+  };
+  await buildVoiceoverManifest(screenplayWith(["a"]), CONFIG, { ...mock, genre: "quest", env: {} });
+  await buildVoiceoverManifest(screenplayWith(["a"]), CONFIG, mock);
+  const { QUEST_VOICE_ID } = await import("./manifest.js");
+  assert.deepEqual(voices, [QUEST_VOICE_ID, "voice-a"]);
 });
