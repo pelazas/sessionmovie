@@ -1,5 +1,6 @@
 import { AbsoluteFill, Sequence, interpolate, useCurrentFrame } from "remotion";
 import { EASE_BACK_OUT, EASE_OUT } from "../../../easing";
+import { dialogueSchedule } from "../../../timing";
 import { Mascot } from "../../../characters/Mascot";
 import type { DialogueScene } from "../../../screenplay";
 import type { Emotion } from "../../../screenplay";
@@ -17,10 +18,9 @@ export const Dialogue: React.FC<{
 }> = ({ scene, caption, durationInFrames }) => {
   const frame = useCurrentFrame();
 
-  // All bubbles land within the first ~70% of the scene, however many there are.
-  const usable = durationInFrames * 0.7;
-  const interval = Math.max(6, (usable - 10) / scene.lines.length);
-  const lineStart = (i: number) => 10 + i * interval;
+  // Bubble pacing comes from the shared timing module — voiceover scheduling
+  // reads the same captionIn to align narration with the caption beat.
+  const { usable, lineStart } = dialogueSchedule(scene, durationInFrames);
 
   // The line currently "on the air" drives the puppets.
   let activeIndex = -1;

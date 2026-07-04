@@ -5,6 +5,7 @@ import {
   useCurrentFrame,
 } from "remotion";
 import { EASE_BACK_OUT } from "../../../easing";
+import { statsSchedule } from "../../../timing";
 import type { StatsScene } from "../../../screenplay";
 import { theme } from "../../../theme";
 import { Caption } from "../../Caption";
@@ -33,7 +34,9 @@ export const Stats: React.FC<{
   const frame = useCurrentFrame();
 
   const cardIn = pop(frame, 0);
-  const countsStart = 20;
+  // Beat anchors come from the shared timing module (voiceover aligns to
+  // captionIn = gradeStart + 20).
+  const { countsStart, achievementsStart, gradeStart } = statsSchedule(scene, durationInFrames);
   const { counts } = scene;
   const tiles = [
     { label: "files touched", value: `${countUp(frame, countsStart, counts.files)}`, color: theme.blue },
@@ -42,8 +45,6 @@ export const Stats: React.FC<{
     { label: "lines removed", value: `−${countUp(frame, countsStart + 24, counts.removed)}`, color: theme.red },
   ];
 
-  const achievementsStart = 90;
-  const gradeStart = Math.min(durationInFrames - 60, achievementsStart + scene.achievements.length * 15 + 25);
   const gradeIn = pop(frame, gradeStart);
 
   const captionIn = interpolate(frame, [gradeStart + 20, gradeStart + 40], [0, 1], {

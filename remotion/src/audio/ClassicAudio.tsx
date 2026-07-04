@@ -1,6 +1,6 @@
 import { Audio, Sequence, interpolate, staticFile, useVideoConfig } from "remotion";
 import type { Screenplay } from "../screenplay";
-import { sceneFrames } from "../timing"; // voiceover integration (feat/voiceover)
+import { captionInFrame, sceneFrames } from "../timing"; // voiceover integration (feat/voiceover)
 import { BEATS } from "./beats";
 import { collectCues, sceneCutFrames, type SfxKind } from "./events";
 
@@ -53,14 +53,25 @@ export const ClassicAudio: React.FC<{
   ];
 
   // ── voiceover integration block, scheduling (feat/voiceover) ──────────────
-  // Each cue starts at its scene's first frame; narration windows duck the
+  // Each cue starts when its scene's CAPTION fades in (issue #9, from the
+  // PR #14 review — narration must not precede its on-screen text), clamped
+  // so the cue still finishes inside its scene. Narration windows duck the
   // music to VO_DUCK_FACTOR with a short deterministic ramp (pure frame math —
   // no randomness, no clocks).
   const sceneStartFrame = (sceneIndex: number): number =>
     screenplay.scenes.slice(0, sceneIndex).reduce((acc, s) => acc + sceneFrames(s, fps), 0);
   const voCues = screenplay.voiceover?.cues ?? [];
+  const voCueStart = (cue: (typeof voCues)[number]): number => {
+    const scene = screenplay.scenes[cue.sceneIndex];
+    if (!scene) return sceneStartFrame(cue.sceneIndex);
+    const frames = sceneFrames(scene, fps);
+    const cueFrames = Math.round(cue.durationSec * fps);
+    const latestFit = Math.max(0, frames - cueFrames);
+    const alignedLocal = Math.min(captionInFrame(scene, frames), latestFit);
+    return sceneStartFrame(cue.sceneIndex) + alignedLocal;
+  };
   const voWindows = voCues.map((cue) => {
-    const start = sceneStartFrame(cue.sceneIndex);
+    const start = voCueStart(cue);
     return { start, end: start + Math.round(cue.durationSec * fps) };
   });
   const voiceoverDuck = (f: number): number => {
@@ -115,7 +126,7 @@ export const ClassicAudio: React.FC<{
       {voCues.map((cue, i) => (
         <Sequence
           key={`vo-${i}`}
-          from={sceneStartFrame(cue.sceneIndex)}
+          from={voCueStart(cue)}
           layout="none"
           name={`voiceover-scene-${cue.sceneIndex}`}
         >

@@ -1,43 +1,22 @@
 import type { Screenplay } from "../screenplay";
-import { sceneFrames } from "../timing";
+import { actionSchedule, sceneFrames, showcaseSchedule, titleSchedule } from "../timing";
 
 // Derives every SFX cue frame from the screenplay with pure frame math.
-//
-// The typing/chip/verdict constants below MIRROR the scene components
-// (Title.tsx, Action.tsx, Showcase.tsx) — the audio layer may not restructure
-// scenes, and the scenes don't export their internals yet. When the GenrePack
-// interface is extracted (genre #2), these schedules should move into one
-// shared timing module. Until then: change a scene's pacing constants, change
-// them here too.
+// All schedules come from src/timing.ts — the same module the scene
+// components read — so audio and picture cannot drift apart.
 
 export type SfxKind = "thock" | "tick" | "fail" | "pass";
 export type SfxCue = { kind: SfxKind; frame: number };
 
-/** Global frames where one scene hands off to the next (excludes frame 0). */
-export const sceneCutFrames = (screenplay: Screenplay, fps: number): number[] => {
-  const cuts: number[] = [];
-  let acc = 0;
-  for (const scene of screenplay.scenes.slice(0, -1)) {
-    acc += sceneFrames(scene, fps);
-    cuts.push(acc);
-  }
-  return cuts;
-};
+export { sceneCutFrames } from "../timing";
 
-/** Keyboard thocks while the title prompt types — mirrors Title.tsx. */
+/** Keyboard thocks while the title prompt types. */
 const titleCues = (
   scene: Extract<Screenplay["scenes"][number], { type: "title" }>,
   start: number,
   durationInFrames: number,
 ): SfxCue[] => {
-  const coldOpenFrames = scene.coldOpen ? Math.round(durationInFrames * 0.22) : 0;
-  const typingStart = 15;
-  const cardFrames = durationInFrames - coldOpenFrames;
-  const charsPerFrame = Math.max(
-    0.9,
-    scene.task.length / Math.max(10, cardFrames * 0.65 - typingStart),
-  );
-  const typingEnd = typingStart + scene.task.length / charsPerFrame;
+  const { coldOpenFrames, typingStart, typingEnd } = titleSchedule(scene, durationInFrames);
   const cues: SfxCue[] = [];
   // One thock per ~4 frames of typing reads as keystrokes without machine-gunning.
   for (let f = typingStart; f < typingEnd; f += 4) {
@@ -46,18 +25,16 @@ const titleCues = (
   return cues;
 };
 
-/** A tick as each tool chip lands — mirrors Action.tsx's stream math. */
+/** A tick as each tool chip lands. */
 const actionCues = (
   scene: Extract<Screenplay["scenes"][number], { type: "action" }>,
   start: number,
   durationInFrames: number,
 ): SfxCue[] => {
-  const streamFrames = durationInFrames * (scene.intensity === "montage" ? 0.75 : 0.9);
-  const interval = Math.max(1.5, (streamFrames - 10) / scene.events.length);
-  const slideDur = Math.min(12, Math.max(3, interval));
+  const { chipLanded } = actionSchedule(scene, durationInFrames);
   return scene.events.map((_e, i) => ({
     kind: "tick" as const,
-    frame: start + Math.round(10 + i * interval + slideDur),
+    frame: start + Math.round(chipLanded(i)),
   }));
 };
 
@@ -75,10 +52,9 @@ export const collectCues = (screenplay: Screenplay, fps: number): SfxCue[] => {
         cues.push(...actionCues(scene, start, frames));
         break;
       case "showcase": {
-        // Verdict banner lands at 78% of the scene — mirrors Showcase.tsx.
-        const verdictFrame = start + Math.round(frames * 0.78);
-        if (scene.verdict === "fail") cues.push({ kind: "fail", frame: verdictFrame });
-        if (scene.verdict === "pass") cues.push({ kind: "pass", frame: verdictFrame });
+        const { verdictStart } = showcaseSchedule(frames);
+        if (scene.verdict === "fail") cues.push({ kind: "fail", frame: start + verdictStart });
+        if (scene.verdict === "pass") cues.push({ kind: "pass", frame: start + verdictStart });
         break;
       }
       default:

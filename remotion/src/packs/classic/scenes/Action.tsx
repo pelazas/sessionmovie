@@ -6,6 +6,7 @@ import {
   useVideoConfig,
 } from "remotion";
 import { EASE_OUT } from "../../../easing";
+import { actionSchedule } from "../../../timing";
 import { CornerMascot } from "../../../characters/CornerMascot";
 import type { ActionScene, ToolEvent } from "../../../screenplay";
 import { theme } from "../../../theme";
@@ -42,15 +43,13 @@ export const Action: React.FC<{
   const frame = useCurrentFrame();
   const { height, fps } = useVideoConfig();
 
-  // Every chip must land within the stream window regardless of event count —
-  // pacing fits the scene's duration budget, never the other way around.
-  const streamFrames = durationInFrames * (scene.intensity === "montage" ? 0.75 : 0.9);
-  const interval = Math.max(1.5, (streamFrames - 10) / scene.events.length);
-  const slideDur = Math.min(12, Math.max(3, interval));
+  // Chip pacing comes from the shared timing module — the audio layer reads
+  // the same schedule for its per-chip ticks.
+  const { slideDur, chipStart, chipLanded } = actionSchedule(scene, durationInFrames);
 
   // One progress evaluation per chip per frame, shared by scroll and render.
   const progresses = scene.events.map((_e, i) =>
-    interpolate(frame, [10 + i * interval, 10 + i * interval + slideDur], [0, 1], {
+    interpolate(frame, [chipStart(i), chipStart(i) + slideDur], [0, 1], {
       easing: EASE_OUT,
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
@@ -65,7 +64,7 @@ export const Action: React.FC<{
   // drives the corner mascot's sweat beat.
   let recentFailFrames = -1;
   scene.events.forEach((event, i) => {
-    const landed = 10 + i * interval + slideDur;
+    const landed = chipLanded(i);
     if (event.ok === false && frame >= landed) recentFailFrames = landed;
   });
 
