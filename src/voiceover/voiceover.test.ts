@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { cacheKey } from "./cache.js";
-import { buildVoiceoverManifest, cueFits, FIT_RATIO } from "./manifest.js";
+import { availableSecFor, buildVoiceoverManifest, cueFits, FIT_RATIO } from "./manifest.js";
 import type { Screenplay } from "../screenplay/schema.js";
 import type { TTSConfig } from "./tts.js";
 
@@ -40,9 +40,15 @@ test("cacheKey delimits fields (no concatenation collisions)", () => {
   assert.notEqual(cacheKey("ab", "c", "m", {}), cacheKey("a", "bc", "m", {}));
 });
 
-test("fit rule: cue fits at exactly targetSec * ratio, not above", () => {
-  assert.equal(cueFits(9, 10), true); // 9 ≤ 10 × 0.9
+test("fit rule: cue fits at exactly availableSec * ratio, not above", () => {
+  assert.equal(cueFits(9, 10), true); // 9 ≤ 10 × 0.9 of the post-caption window
   assert.equal(cueFits(9.01, 10), false);
+});
+
+test("availableSecFor: dialogue captions appear at ~70% — the window is the remainder", () => {
+  // dialogue targetSec 10 → 300 frames, captionIn = usable = 210 → 3s window
+  const scene = screenplayWith(["x"], 10).scenes[0]!;
+  assert.equal(Math.round(availableSecFor(scene) * 100) / 100, 3);
 });
 
 test("fit rule ratio is the documented 0.9", () => {
@@ -75,19 +81,20 @@ test("manifest: captionless scenes get no cue; fit-rule overflow is skipped with
         publicPath: `voiceover-cache/${text.length}.mp3`,
         apiCalled: true,
       }),
-      // scene targetSec = 10 → limit 9s: first caption 3s (fits), third 12s (skipped)
-      probe: (path) => (path.includes("13") ? 3 : 12),
+      // dialogue targetSec 10 → caption at 70% → 3s window × 0.9 = 2.7s limit:
+      // first caption 2s (fits), third 12s (skipped)
+      probe: (path) => (path.includes("13") ? 2 : 12),
     },
   );
   assert.equal(manifest.cues.length, 1);
   assert.equal(manifest.cues[0]?.sceneIndex, 0);
-  assert.equal(manifest.cues[0]?.durationSec, 3);
+  assert.equal(manifest.cues[0]?.durationSec, 2);
   assert.equal(apiCalls, 2);
   assert.equal(cacheHits, 0);
   assert.equal(skipped.length, 1);
   assert.equal(skipped[0]?.sceneIndex, 2);
   assert.equal(warnings.length, 1);
-  assert.match(warnings[0] ?? "", /fit|allows|skipping/i);
+  assert.match(warnings[0] ?? "", /fit|after its caption|skipping/i);
 });
 
 test("manifest: cache hits are counted, not re-synthesized", async () => {

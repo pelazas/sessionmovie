@@ -35,19 +35,23 @@ export const QuestAction: React.FC<{
   const frame = useCurrentFrame();
   const { slideDur, chipStart, chipLanded } = actionSchedule(scene, durationInFrames);
 
-  // Landed attacks so far → boss HP + hit flash beat.
-  let landedCount = 0;
+  // Landed attacks so far → boss HP + hit flash beat. Only the agent's
+  // successful moves damage the boss (ok === false is the BUG countering —
+  // it should not hurt itself), and mid-battle HP floors above zero: the
+  // kill is the showcase's payoff, not the montage's.
+  let damage = 0;
+  const damageable = scene.events.filter((e) => e.ok !== false).length;
   let lastLanded = -999;
   let recentCounter = -999;
   scene.events.forEach((event, i) => {
     const landed = chipLanded(i);
     if (frame >= landed) {
-      landedCount++;
       lastLanded = Math.max(lastLanded, landed);
       if (event.ok === false) recentCounter = Math.max(recentCounter, landed);
+      else damage++;
     }
   });
-  const hp = 1 - landedCount / Math.max(1, scene.events.length);
+  const hp = Math.max(0.1, 1 - (0.9 * damage) / Math.max(1, damageable));
   const hitFlash = interpolate(frame - lastLanded, [0, 3, 10], [0, 1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",

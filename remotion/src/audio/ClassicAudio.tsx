@@ -1,6 +1,6 @@
 import { Audio, Sequence, interpolate, staticFile, useVideoConfig } from "remotion";
 import type { Screenplay } from "../screenplay";
-import { captionInFrame, sceneFrames } from "../timing"; // voiceover integration (feat/voiceover)
+import { captionInFrame, sceneFrames, sceneStartFrame as sceneStartAt } from "../timing"; // voiceover integration (feat/voiceover)
 import { BEATS } from "./beats";
 import { collectCues, sceneCutFrames, type SfxKind } from "./events";
 
@@ -58,8 +58,7 @@ export const ClassicAudio: React.FC<{
   // so the cue still finishes inside its scene. Narration windows duck the
   // music to VO_DUCK_FACTOR with a short deterministic ramp (pure frame math —
   // no randomness, no clocks).
-  const sceneStartFrame = (sceneIndex: number): number =>
-    screenplay.scenes.slice(0, sceneIndex).reduce((acc, s) => acc + sceneFrames(s, fps), 0);
+  const sceneStartFrame = (sceneIndex: number): number => sceneStartAt(screenplay, sceneIndex, fps);
   const voCues = screenplay.voiceover?.cues ?? [];
   const voCueStart = (cue: (typeof voCues)[number]): number => {
     const scene = screenplay.scenes[cue.sceneIndex];
@@ -67,7 +66,8 @@ export const ClassicAudio: React.FC<{
     const frames = sceneFrames(scene, fps);
     const cueFrames = Math.round(cue.durationSec * fps);
     const latestFit = Math.max(0, frames - cueFrames);
-    const alignedLocal = Math.min(captionInFrame(scene, frames), latestFit);
+    // Clamped at 0: statsSchedule captionIn can go negative for very short scenes.
+    const alignedLocal = Math.max(0, Math.min(captionInFrame(scene, frames), latestFit));
     return sceneStartFrame(cue.sceneIndex) + alignedLocal;
   };
   const voWindows = voCues.map((cue) => {

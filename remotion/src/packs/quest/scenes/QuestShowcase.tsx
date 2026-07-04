@@ -6,6 +6,7 @@ import { showcaseSchedule } from "../../../timing";
 import { Caption } from "../../Caption";
 import { Monster } from "../Monster";
 import { quest } from "../theme";
+import { AbstractDiff } from "../../classic/scenes/Showcase";
 
 /**
  * The confrontation: the artifact is the battle record. verdict=fail → the
@@ -101,6 +102,15 @@ export const QuestShowcase: React.FC<{
                 <span style={{ color: quest.red }}>−{scene.artifact.removed}</span>
               </span>
             </div>
+            {(scene.artifact.snippet ?? "").trim().length === 0 ? (
+              // Snippetless diffs are schema-legal (LLM screenwriters often
+              // omit one) — reuse classic's abstract diff bars over dead space.
+              <AbstractDiff
+                added={scene.artifact.added}
+                removed={scene.artifact.removed}
+                durationInFrames={durationInFrames}
+              />
+            ) : null}
             {(scene.artifact.snippet ?? "")
               .split("\n")
               .filter((l) => l.length > 0)

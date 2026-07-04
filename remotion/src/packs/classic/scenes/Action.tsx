@@ -45,7 +45,7 @@ export const Action: React.FC<{
 
   // Chip pacing comes from the shared timing module — the audio layer reads
   // the same schedule for its per-chip ticks.
-  const { slideDur, chipStart, chipLanded } = actionSchedule(scene, durationInFrames);
+  const { slideDur, chipStart, chipLanded, captionIn: captionInAt } = actionSchedule(scene, durationInFrames);
 
   // One progress evaluation per chip per frame, shared by scroll and render.
   const progresses = scene.events.map((_e, i) =>
@@ -68,7 +68,7 @@ export const Action: React.FC<{
     if (event.ok === false && frame >= landed) recentFailFrames = landed;
   });
 
-  const captionIn = interpolate(frame, [8, 25], [0, 1], {
+  const captionIn = interpolate(frame, [captionInAt, captionInAt + 17], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });

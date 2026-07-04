@@ -11,6 +11,7 @@
  * (docs/audio.md hard rule; keeps renders deterministic and Lambda-viable).
  */
 import { spawnSync } from "node:child_process";
+import { captionInFrame, sceneFrames } from "../../remotion/src/timing.js";
 import type { Screenplay } from "../screenplay/schema.js";
 import { remotionDir } from "../cli/workspace.js";
 import { getOrSynthesize } from "./cache.js";
@@ -28,12 +29,21 @@ export interface ManifestStats {
 
 /**
  * FIT RULE (binding, docs/audio.md): narration must fit its scene, not
- * stretch it. A cue longer than targetSec * 0.9 is skipped with a warning —
- * scene durations never grow to fit audio.
+ * stretch it — and since cues start when their caption fades in
+ * (remotion/src/timing.ts captionInFrame), the budget is the window from
+ * caption-in to scene end, not the whole scene. A cue longer than
+ * availableSec * 0.9 is skipped with a warning; scenes never grow.
  */
 export const FIT_RATIO = 0.9;
-export function cueFits(durationSec: number, targetSec: number): boolean {
-  return durationSec <= targetSec * FIT_RATIO;
+export const FPS = 30; // mirrors the composition fps (remotion/src/Root.tsx)
+export function cueFits(durationSec: number, availableSec: number): boolean {
+  return durationSec <= availableSec * FIT_RATIO;
+}
+/** Seconds between a scene's caption appearing and the scene ending. */
+export function availableSecFor(scene: Screenplay["scenes"][number]): number {
+  const frames = sceneFrames(scene, FPS);
+  const captionIn = Math.max(0, Math.min(captionInFrame(scene, frames), frames));
+  return (frames - captionIn) / FPS;
 }
 
 /** Measure audio duration with Remotion's bundled ffprobe (no new dependency). */
@@ -89,10 +99,11 @@ export async function buildVoiceoverManifest(
     else cacheHits++;
 
     const durationSec = probe(cached.absolutePath);
-    if (!cueFits(durationSec, scene.targetSec)) {
+    const availableSec = availableSecFor(scene);
+    if (!cueFits(durationSec, availableSec)) {
       const reason =
         `narration is ${durationSec.toFixed(1)}s but scene ${sceneIndex} (${scene.type}) ` +
-        `allows ${(scene.targetSec * FIT_RATIO).toFixed(1)}s (targetSec ${scene.targetSec} × ${FIT_RATIO})`;
+        `has ${(availableSec * FIT_RATIO).toFixed(1)}s after its caption appears (targetSec ${scene.targetSec})`;
       log(`⚠️  voiceover: skipping cue — ${reason}`);
       skipped.push({ sceneIndex, reason });
       continue;
