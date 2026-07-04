@@ -7,7 +7,7 @@ import type { Genre } from "./rules.js";
 
 export const GENRE_COMPOSITIONS: Partial<Record<Genre, string>> = {
   classic: "Classic",
-  // quest: "Quest",        ← added by the quest pack (#9) when it ships
+  quest: "Quest", // the quest pack (#9)
 };
 
 const CLASSIC_ID = "Classic";
