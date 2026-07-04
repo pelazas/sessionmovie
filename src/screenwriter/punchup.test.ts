@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Screenplay } from "../screenplay/schema.js";
-import { punchUpScreenplay, structuralDiff } from "./punchup.js";
+import { captionAnchors, lostCaptionAnchors, punchUpScreenplay, structuralDiff } from "./punchup.js";
 
 const input: Screenplay = {
   version: 1,
@@ -58,10 +58,8 @@ const input: Screenplay = {
 /** A legal rewrite: same structure, new text everywhere allowed. */
 const punched: Screenplay = JSON.parse(JSON.stringify(input)) as Screenplay;
 punched.scenes = punched.scenes.map((s) => ({ ...s, caption: `REWRITTEN ${s.type}` }));
-const dialogue = punched.scenes[1];
-if (dialogue?.type === "dialogue") {
-  dialogue.lines = dialogue.lines.map((l) => ({ ...l, text: `arr, ${l.text}` }));
-}
+// NOTE: dialogue text deliberately untouched — it is documentary and frozen
+// (docs/v1-storychange.md); rewriting it is a violation, tested below.
 const stats = punched.scenes[4];
 if (stats?.type === "stats") {
   stats.achievements = [{ id: "clean-run", title: "The Immaculate Heist" }];
@@ -113,6 +111,61 @@ describe("structuralDiff", () => {
     const scene = bad.scenes[4];
     if (scene?.type === "stats") delete scene.grade;
     assert.ok(structuralDiff(input, bad).some((v) => v.includes("hasGrade")));
+  });
+});
+
+describe("dialogue is documentary (docs/v1-storychange.md)", () => {
+  it("flags a rewritten dialogue line as a structural violation, quoting the text", () => {
+    const bad = JSON.parse(JSON.stringify(punched)) as Screenplay;
+    const scene = bad.scenes[1];
+    if (scene?.type === "dialogue" && scene.lines[0]) scene.lines[0].text = "arr, the login be broken";
+    const violations = structuralDiff(input, bad);
+    assert.ok(violations.some((v) => v.includes("text") && v.includes("the login is broken")));
+  });
+
+  it("punchUpScreenplay returns input unchanged when the model keeps translating dialogue", () => {
+    const bad = JSON.parse(JSON.stringify(punched)) as Screenplay;
+    const scene = bad.scenes[1];
+    if (scene?.type === "dialogue" && scene.lines[1]) scene.lines[1].text = "verily, on it";
+    const warnings: string[] = [];
+    const result = punchUpScreenplay(input, "quest", {
+      runner: () => JSON.stringify(bad),
+      log: (m) => warnings.push(m),
+    });
+    assert.equal(result.source, "unchanged");
+    assert.deepEqual(result.screenplay, input);
+  });
+});
+
+describe("caption anchors survive the rewrite", () => {
+  it("captionAnchors finds times, files, PR refs and numbers", () => {
+    // "08"/"17"/"34" also match as bare numbers — redundant but harmless,
+    // since violation checks are substring-based.
+    assert.deepEqual(
+      captionAnchors("08:34 — PR #17 lands in Showcase.tsx, 46 files later").sort(),
+      ["#17", "08", "08:34", "17", "34", "46", "Showcase.tsx"].sort(),
+    );
+  });
+
+  it("a rewrite that drops a number is a violation that quotes the anchor", () => {
+    const anchored = JSON.parse(JSON.stringify(input)) as Screenplay;
+    const scene = anchored.scenes[3];
+    if (scene) scene.caption = "17 tests fail in auth.ts";
+    const bad = JSON.parse(JSON.stringify(anchored)) as Screenplay;
+    const badScene = bad.scenes[3];
+    if (badScene) badScene.caption = "many tests fail in auth.ts";
+    const violations = lostCaptionAnchors(anchored, bad);
+    assert.ok(violations.some((v) => v.includes('"17"')));
+  });
+
+  it("a rewrite that keeps every anchor passes", () => {
+    const anchored = JSON.parse(JSON.stringify(input)) as Screenplay;
+    const scene = anchored.scenes[3];
+    if (scene) scene.caption = "17 tests fail in auth.ts";
+    const good = JSON.parse(JSON.stringify(anchored)) as Screenplay;
+    const goodScene = good.scenes[3];
+    if (goodScene) goodScene.caption = "the boss strikes: 17 tests down in auth.ts";
+    assert.deepEqual(lostCaptionAnchors(anchored, good), []);
   });
 });
 

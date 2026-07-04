@@ -8,8 +8,12 @@
  * unchanged with a warning. This is what makes `--genre` re-renders cheap
  * and safe.
  *
- * Allowed text fields: scene `caption`, dialogue line `text`, achievement
- * `title`, stats `grade`. Nothing else — not even title.task.
+ * Allowed text fields: scene `caption`, achievement `title`, stats `grade`.
+ * Nothing else. Dialogue text is DOCUMENTARY (docs/v1-storychange.md): the
+ * user's and agent's real words are condensed by the beat pass and never
+ * persona-translated — it is part of the frozen fingerprint below. Caption
+ * ANCHORS (file names, numbers, timestamps) must survive a rewrite; the
+ * anchor checker turns a lost anchor into a retry that quotes it.
  */
 import { ScreenplaySchema, type Screenplay } from "../screenplay/schema.js";
 import { PERSONAS } from "../genre/personas.js";
@@ -77,9 +81,11 @@ function structuralFingerprint(screenplay: Screenplay): unknown {
         case "title":
           return { ...base, task: scene.task, coldOpen: scene.coldOpen ?? null };
         case "dialogue":
+          // Dialogue is documentary — text is frozen structure, same as
+          // emotions and timings (docs/v1-storychange.md).
           return {
             ...base,
-            lines: scene.lines.map((l) => ({ speaker: l.speaker, emotion: l.emotion, text: "" })),
+            lines: scene.lines.map((l) => ({ speaker: l.speaker, emotion: l.emotion, text: l.text })),
           };
         case "action":
           return { ...base, intensity: scene.intensity, events: scene.events };
@@ -132,25 +138,70 @@ export function structuralDiff(input: Screenplay, candidate: Screenplay): string
   return violations;
 }
 
+/** Recognition anchors inside a caption: times, file-ish names, PR/issue refs, numbers. */
+const ANCHOR_PATTERNS = [
+  /\b\d{1,2}:\d{2}\b/g, // time of day
+  /\b[\w./-]+\.(?:tsx?|jsx?|mjs|cjs|md|json|ya?ml|css|py|rs|go|sh|ogg|mp[34])\b/g, // file names
+  /#\d+\b/g, // PR/issue refs
+  /\b\d+(?:[.,]\d+)?\b/g, // plain numbers
+];
+
+export function captionAnchors(caption: string): string[] {
+  const anchors = new Set<string>();
+  for (const pattern of ANCHOR_PATTERNS) {
+    for (const match of caption.matchAll(pattern)) anchors.add(match[0]);
+  }
+  return [...anchors];
+}
+
+/**
+ * Captions are rewritable TEXT, but their anchors are not (docs/
+ * v1-storychange.md): every anchor in an input caption must survive,
+ * verbatim, in the rewritten caption. Violations quote the lost anchor so
+ * the retry prompt can name exactly what disappeared.
+ */
+export function lostCaptionAnchors(input: Screenplay, candidate: Screenplay): string[] {
+  const violations: string[] = [];
+  input.scenes.forEach((scene, i) => {
+    const before = scene.caption;
+    const after = candidate.scenes[i]?.caption;
+    if (!before || !after) return; // presence changes are structuralDiff's job
+    for (const anchor of captionAnchors(before)) {
+      if (!after.includes(anchor)) {
+        violations.push(`scenes[${i}].caption lost its anchor "${anchor}" (was: "${before}")`);
+      }
+    }
+  });
+  return violations;
+}
+
 function buildPrompt(screenplay: Screenplay, genre: Genre): string {
   return [
     "You are the punch-up pass for sessionmovie: rewrite a movie screenplay's TEXT in a genre voice.",
     "",
     `The voice: ${PERSONAS[genre]}.`,
     "",
+    "The persona is TONE, not dialect (docs/v1-storychange.md). You may color the",
+    "captions with the genre's attitude — word choice, rhythm, one epic flourish.",
+    "You may NOT:",
+    '- use archaic or period dialect ("thou", "aye", "forsooth", "behold")',
+    '- rename real things into genre objects (ideas are not "scrolls"; npm install is not "a journey through cursed lands")',
+    "- drop a caption's anchors: file names, numbers, and timestamps MUST survive the rewrite verbatim",
+    "",
     "Rewrite ONLY these fields, keeping every one within its limit:",
     '- every scene\'s "caption" (max 120 chars, AT MOST 10 WORDS — it is narrated aloud)',
-    '- dialogue line "text" (max 90 chars; keep each line\'s speaker and emotion exactly)',
     '- achievement "title" values (max 60 chars; keep each achievement\'s "id" exactly)',
     '- the stats scene\'s "grade" (max 3 chars) if present',
     "",
-    "EVERYTHING ELSE IS FROZEN. Same scenes, same order, same types, same targetSec,",
-    "same title task, same coldOpen, same events, same artifacts, same verdicts, same",
-    "counts, same numbers. Do not add or remove anything. If you change structure the",
-    "output is rejected by a machine, not a person — there is no partial credit.",
+    "EVERYTHING ELSE IS FROZEN — including every dialogue line \"text\": the user's",
+    "and agent's real words are documentary and are verified byte-for-byte. Same",
+    "scenes, same order, same types, same targetSec, same title task, same coldOpen,",
+    "same events, same artifacts, same verdicts, same counts. Do not add or remove",
+    "anything. If you change structure the output is rejected by a machine, not a",
+    "person — there is no partial credit.",
     "",
-    "Punch up the jokes, do not replace the facts: the captions must still be about",
-    "what actually happens in their scene.",
+    "Recognition first, comedy second: the viewer lived this session, and every",
+    "caption must still point at the real moment it narrates.",
     "",
     "Output ONLY the full rewritten screenplay JSON — no commentary, no fences.",
     "",
@@ -172,8 +223,10 @@ function repairPrompt(originalPrompt: string, previousOutput: string, issues: st
     "Rejection reasons:",
     issues,
     "",
-    "Fix every issue. Remember: only caption, dialogue text, achievement titles and",
-    "grade may differ from the input screenplay. Output the corrected JSON only.",
+    "Fix every issue. Remember: only captions, achievement titles and grade may",
+    "differ from the input screenplay — dialogue text is frozen, and every file",
+    "name, number and timestamp in a caption must survive. Output the corrected",
+    "JSON only.",
   ].join("\n");
 }
 
@@ -231,7 +284,10 @@ export function punchUpScreenplay(
       continue;
     }
 
-    const violations = structuralDiff(screenplay, validated.data);
+    const violations = [
+      ...structuralDiff(screenplay, validated.data),
+      ...lostCaptionAnchors(screenplay, validated.data),
+    ];
     if (violations.length > 0) {
       log(
         `⚠️  punch-up: attempt ${attempts}/${maxAttempts} changed structure (${violations[0]}), retrying`,
