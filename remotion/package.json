@@ -21,6 +21,7 @@
   "scripts": {
     "dev": "remotion studio",
     "render": "remotion render src/index.ts Classic ../out/sample.mp4 --props=../fixtures/screenplays/sample.json",
+    "contact-sheet": "remotion still src/index.ts ContactSheet contact-sheet.png --frame=45",
     "build": "remotion bundle",
     "lint": "eslint src && tsc"
   },

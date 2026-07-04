@@ -20,8 +20,8 @@ const EYES: Record<Emotion, React.ReactNode> = {
     <>
       <circle cx={84} cy={78} r={6} fill={theme.text} />
       <circle cx={116} cy={78} r={6} fill={theme.text} />
-      <line x1={74} y1={66} x2={94} y2={64} stroke={theme.text} strokeWidth={5} strokeLinecap="round" />
-      <line x1={106} y1={64} x2={126} y2={66} stroke={theme.text} strokeWidth={5} strokeLinecap="round" />
+      <line x1={76} y1={69} x2={92} y2={67} stroke={theme.text} strokeWidth={5} strokeLinecap="round" />
+      <line x1={108} y1={67} x2={124} y2={69} stroke={theme.text} strokeWidth={5} strokeLinecap="round" />
     </>
   ),
   confused: (
@@ -29,7 +29,7 @@ const EYES: Record<Emotion, React.ReactNode> = {
       <circle cx={84} cy={78} r={6} fill={theme.text} />
       <circle cx={116} cy={76} r={4} fill={theme.text} />
       {/* one raised brow */}
-      <path d="M106 62 Q116 56 126 62" stroke={theme.text} strokeWidth={5} fill="none" strokeLinecap="round" />
+      <path d="M106 68 Q116 62 126 68" stroke={theme.text} strokeWidth={5} fill="none" strokeLinecap="round" />
       <text
         x={136}
         y={66}
