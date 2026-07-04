@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Easing, Sequence, interpolate, useCurrentFrame } from "remotion";
+import { CornerMascot } from "../characters/CornerMascot";
 import type { DiffArtifact, ShowcaseScene, TestRunArtifact } from "../screenplay";
 import { theme } from "../theme";
 import { Caption } from "./Caption";
@@ -139,6 +140,18 @@ export const Showcase: React.FC<{
         {verdict.label}
       </div>
       {caption ? <Caption text={caption} opacity={captionIn} /> : null}
+      {/* corner-reaction mascot (issue #8): reacts when the verdict lands —
+          collapses on fail, cheers with confetti on pass, smugly points on
+          reveal. Sequence restarts its clock so the pose spring fires then. */}
+      <Sequence from={verdictStart} layout="none">
+        {scene.verdict === "fail" ? (
+          <CornerMascot pose="collapse" emotion="defeated" corner="bottom-left" seed="showcase-fail" />
+        ) : scene.verdict === "pass" ? (
+          <CornerMascot pose="cheer" emotion="celebrating" corner="bottom-left" confetti seed="showcase-pass" />
+        ) : (
+          <CornerMascot pose="point" emotion="smug" corner="bottom-left" seed="showcase-reveal" />
+        )}
+      </Sequence>
     </AbsoluteFill>
   );
 };
