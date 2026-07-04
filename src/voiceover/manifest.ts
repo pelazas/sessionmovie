@@ -59,22 +59,27 @@ export interface ManifestStats {
 
 /**
  * FIT RULE (binding, docs/audio.md): narration must fit its scene, not
- * stretch it — and since cues start when their caption fades in
- * (remotion/src/timing.ts captionInFrame), the budget is the window from
- * caption-in to scene end, not the whole scene. A cue longer than
- * availableSec * 0.9 is skipped with a warning; scenes never grow.
+ * stretch it. Since the caption FOLLOWS the cue (the sync contract: with a
+ * cue, the caption's lifetime is the narration window), a cue may start
+ * before the schedule's caption-in — the renderer clamps the start to
+ * min(captionIn, latest-fit) and the caption rides along. The budget is
+ * therefore the whole scene minus a short lead-in, not the post-caption
+ * remainder. A cue longer than availableSec * 0.9 is skipped; scenes never grow.
  */
 export const FIT_RATIO = 0.9;
 export const FPS = 30; // mirrors the composition fps (remotion/src/Root.tsx)
+/** Frames reserved at the scene start before narration may begin. */
+export const MIN_LEAD_FRAMES = 6;
 export function cueFits(durationSec: number, availableSec: number): boolean {
   return durationSec <= availableSec * FIT_RATIO;
 }
-/** Seconds between a scene's caption appearing and the scene ending. */
+/** Seconds available for narration in a scene (scene length minus the lead-in). */
 export function availableSecFor(scene: Screenplay["scenes"][number]): number {
   const frames = sceneFrames(scene, FPS);
-  const captionIn = Math.max(0, Math.min(captionInFrame(scene, frames), frames));
-  return (frames - captionIn) / FPS;
+  return Math.max(0, frames - MIN_LEAD_FRAMES) / FPS;
 }
+void captionInFrame; // still used by the renderer-side clamp; kept for parity
+
 
 /** Measure audio duration with Remotion's bundled ffprobe (no new dependency). */
 export function probeDurationSec(absolutePath: string): number {

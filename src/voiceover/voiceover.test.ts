@@ -45,10 +45,10 @@ test("fit rule: cue fits at exactly availableSec * ratio, not above", () => {
   assert.equal(cueFits(9.01, 10), false);
 });
 
-test("availableSecFor: dialogue captions appear at ~70% — the window is the remainder", () => {
-  // dialogue targetSec 10 → 300 frames, captionIn = usable = 210 → 3s window
+test("availableSecFor: the caption follows the cue — the window is the scene minus the lead-in", () => {
+  // dialogue targetSec 10 → 300 frames − 6 lead-in → 9.8s window
   const scene = screenplayWith(["x"], 10).scenes[0]!;
-  assert.equal(Math.round(availableSecFor(scene) * 100) / 100, 3);
+  assert.equal(Math.round(availableSecFor(scene) * 100) / 100, 9.8);
 });
 
 test("fit rule ratio is the documented 0.9", () => {

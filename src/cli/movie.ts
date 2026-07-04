@@ -16,6 +16,12 @@ import { buildVoiceoverManifest } from "../voiceover/manifest.js";
 import { ttsConfigFromEnv } from "../voiceover/tts.js";
 // genre auto-pick block (feat/genre-rules, issue #10)
 import { compositionFor } from "../genre/compositions.js";
+// ── T5 pipeline wiring: punch-up → beat-quantize → genre-voiced TTS ──
+import { BEATS as CLASSIC_BEATS } from "../../remotion/src/audio/beats.js";
+import { BEATS as QUEST_BEATS } from "../../remotion/src/audio/questBeats.js";
+import { punchUpScreenplay } from "../screenwriter/punchup.js";
+import { quantizeToBeats } from "../quantize.js";
+import { voiceForGenre } from "../voiceover/manifest.js";
 import { GENRES, isGenre, pickGenre, signalsFrom, type Genre } from "../genre/rules.js";
 import type { Timeline } from "../parser/types.js";
 
@@ -64,7 +70,7 @@ if (genreFlagAt !== -1) {
   args.splice(genreFlagAt, 2);
 }
 /** Genre + composition for the timeline; prints the one explainable line. */
-function resolveGenreComposition(timeline: Timeline): string {
+function resolveGenreComposition(timeline: Timeline): { compositionId: string; genre: Genre } {
   const pick = genreOverride
     ? { genre: genreOverride, reason: "--genre override, auto-pick skipped" }
     : pickGenre(signalsFrom(timeline));
@@ -74,7 +80,7 @@ function resolveGenreComposition(timeline: Timeline): string {
       (shipped ? "" : ` → rendering classic (${pick.genre} not shipped yet)`) +
       "\n",
   );
-  return compositionId;
+  return { compositionId, genre: pick.genre };
 }
 // ── end genre auto-pick block ───────────────────────────────────────────────
 
@@ -123,7 +129,7 @@ try {
 }
 
 const timeline = parseTranscript(jsonl);
-const genreComposition = resolveGenreComposition(timeline); // genre auto-pick block (issue #10)
+const { compositionId: genreComposition, genre } = resolveGenreComposition(timeline); // genre auto-pick block (issue #10)
 // LLM screenwriter is the default (real narrative, funny captions); it falls
 // back to the heuristic on its own when `claude` is missing or attempts fail.
 let result;
@@ -151,7 +157,32 @@ if (!validated.success) {
     .join("; ");
   fail(`screenwriter produced an invalid screenplay (bug): ${issues}`);
 }
-const screenplay = validated.data;
+let screenplay = validated.data;
+
+// ── T5 pipeline: persona punch-up → beat quantize (order is load-bearing:
+// narrate final words; fit narration against final durations) ──────────────
+if (useLlm) {
+  const punched = punchUpScreenplay(screenplay, genre);
+  screenplay = punched.screenplay;
+  process.stdout.write(
+    `   punch-up: ${punched.source}${punched.attempts ? ` (${punched.attempts} attempt${punched.attempts > 1 ? "s" : ""})` : ""} — ${genre} persona\n`,
+  );
+}
+{
+  const beats = genreComposition === "Quest" ? QUEST_BEATS : CLASSIC_BEATS;
+  const quantized = quantizeToBeats(screenplay, [...beats], FPS);
+  const nudged = quantized.scenes.filter(
+    (sc, i) => sc.targetSec !== screenplay.scenes[i]?.targetSec,
+  ).length;
+  process.stdout.write(
+    nudged > 0
+      ? `   beat-sync: ${nudged} scene cut(s) snapped to the ${genreComposition} grid\n`
+      : "   beat-sync: cuts already on the grid\n",
+  );
+  screenplay = quantized;
+}
+// ── end T5 pipeline ─────────────────────────────────────────────────────────
+
 process.stdout.write(
   `   screenplay ready: ${screenplay.scenes.length} scenes ` +
     `(${screenplay.scenes.map((s) => s.type).join(" → ")})\n`,
@@ -171,11 +202,12 @@ if (voiceover) {
     );
   }
   process.stdout.write(
-    `   voiceover: narrating captions (ElevenLabs, voice ${ttsConfig.voiceId}, ${ttsConfig.model})…\n`,
+    `   voiceover: narrating captions (ElevenLabs, voice ${voiceForGenre(genre)}, ${ttsConfig.model}, ${genre} persona)…\n`,
   );
   try {
     const stats = await buildVoiceoverManifest(screenplay, ttsConfig, {
       refresh: refreshVoices,
+      genre, // per-genre voice (T5 wiring — Daniel narrates quest)
     });
     process.stdout.write(
       `   voiceover: ${stats.manifest.cues.length} cue(s) — ${stats.apiCalls} API call(s), ` +

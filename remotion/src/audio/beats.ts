@@ -39,7 +39,7 @@ export const beatIndexAt = (t: number): number => {
   let lo = 0, hi = BEATS.length - 1, ans = -1;
   while (lo <= hi) {
     const mid = (lo + hi) >> 1;
-    if (BEATS[mid] <= t) { ans = mid; lo = mid + 1; } else { hi = mid - 1; }
+    if ((BEATS[mid] ?? Infinity) <= t) { ans = mid; lo = mid + 1; } else { hi = mid - 1; }
   }
   return ans;
 };
