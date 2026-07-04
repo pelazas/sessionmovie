@@ -5,7 +5,9 @@ import { actionSchedule, sceneFrames, showcaseSchedule, titleSchedule } from "..
 // All schedules come from src/timing.ts — the same module the scene
 // components read — so audio and picture cannot drift apart.
 
-export type SfxKind = "thock" | "tick" | "fail" | "pass";
+// feat/effects additive kinds: whoosh (scene cuts), drone (action fail
+// streak), stinger (stats open). Cue derivation stays schedule-driven.
+export type SfxKind = "thock" | "tick" | "fail" | "pass" | "whoosh" | "drone" | "stinger";
 export type SfxCue = { kind: SfxKind; frame: number };
 
 export { sceneCutFrames } from "../timing";
@@ -25,25 +27,41 @@ const titleCues = (
   return cues;
 };
 
-/** A tick as each tool chip lands. */
+/**
+ * A tick as each tool chip lands, plus (feat/effects) a tension drone when a
+ * fail streak opens: the first ok:false chip whose successor is also ok:false.
+ * chipLanded() stays the single landing source of truth — the visual speed
+ * ramp compresses slide-in durations, never landing frames.
+ */
 const actionCues = (
   scene: Extract<Screenplay["scenes"][number], { type: "action" }>,
   start: number,
   durationInFrames: number,
 ): SfxCue[] => {
   const { chipLanded } = actionSchedule(scene, durationInFrames);
-  return scene.events.map((_e, i) => ({
+  const cues: SfxCue[] = scene.events.map((_e, i) => ({
     kind: "tick" as const,
     frame: start + Math.round(chipLanded(i)),
   }));
+  const streakStart = scene.events.findIndex(
+    (e, i) => e.ok === false && scene.events[i + 1]?.ok === false,
+  );
+  if (streakStart >= 0) {
+    cues.push({ kind: "drone", frame: start + Math.round(chipLanded(streakStart)) });
+  }
+  return cues;
 };
 
 /** All SFX cues for the movie, in global frames. */
 export const collectCues = (screenplay: Screenplay, fps: number): SfxCue[] => {
   const cues: SfxCue[] = [];
   let start = 0;
-  for (const scene of screenplay.scenes) {
+  for (const [index, scene] of screenplay.scenes.entries()) {
     const frames = sceneFrames(scene, fps);
+    // feat/effects: transition whoosh at every scene handoff (matches the
+    // 2-frame visual transition in PackComposition), end stinger when the
+    // stats card opens. Both derive from the same frame math as the picture.
+    if (index > 0) cues.push({ kind: "whoosh", frame: start - 2 });
     switch (scene.type) {
       case "title":
         cues.push(...titleCues(scene, start, frames));
@@ -57,6 +75,9 @@ export const collectCues = (screenplay: Screenplay, fps: number): SfxCue[] => {
         if (scene.verdict === "pass") cues.push({ kind: "pass", frame: start + verdictStart });
         break;
       }
+      case "stats":
+        cues.push({ kind: "stinger", frame: start });
+        break;
       default:
         break;
     }
