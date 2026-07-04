@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { AbsoluteFill, Easing, Sequence, interpolate, useCurrentFrame } from "remotion";
 import { EASE_BACK_OUT, EASE_OUT } from "../../../easing";
 import { showcaseSchedule } from "../../../timing";
-import { flash, freezeSlam, shake } from "../../../effects";
+import { cameraDrift, flash, freezeSlam, shake } from "../../../effects";
 import { CornerMascot } from "../../../characters/CornerMascot";
 import type { DiffArtifact, ShowcaseScene, TestRunArtifact } from "../../../screenplay";
 import { theme } from "../../../theme";
@@ -78,6 +78,7 @@ export const Showcase: React.FC<{
   durationInFrames: number;
 }> = ({ scene, caption, durationInFrames }) => {
   const frame = useCurrentFrame();
+  const drift = cameraDrift(frame, "classic-showcase", durationInFrames);
   const verdict = VERDICT[scene.verdict];
 
   const panelIn = interpolate(frame, [0, 15], [0, 1], {
@@ -109,7 +110,7 @@ export const Showcase: React.FC<{
         fontFamily: theme.mono,
         justifyContent: "center",
         padding: 50,
-        transform: `translate(${hit.x}px, ${hit.y}px)`,
+        transform: `${drift.transform} translate(${hit.x}px, ${hit.y}px)`,
       }}
     >
       <div

@@ -6,6 +6,7 @@ import {
   useVideoConfig,
 } from "remotion";
 import { EASE_OUT } from "../../../easing";
+import { cameraDrift } from "../../../effects";
 import { actionSchedule } from "../../../timing";
 import { CornerMascot } from "../../../characters/CornerMascot";
 import type { ActionScene, ToolEvent } from "../../../screenplay";
@@ -41,6 +42,7 @@ export const Action: React.FC<{
   durationInFrames: number;
 }> = ({ scene, caption, durationInFrames }) => {
   const frame = useCurrentFrame();
+  const drift = cameraDrift(frame, "classic-action", durationInFrames);
   const { height, fps } = useVideoConfig();
 
   // Chip pacing comes from the shared timing module — the audio layer reads
@@ -83,7 +85,7 @@ export const Action: React.FC<{
 
   return (
     <AbsoluteFill
-      style={{ backgroundColor: theme.bg, fontFamily: theme.mono, overflow: "hidden" }}
+      style={{ backgroundColor: theme.bg, fontFamily: theme.mono, overflow: "hidden", transform: drift.transform }}
     >
       {scene.events.map((event, i) => {
         const p = progresses[i] ?? 0;

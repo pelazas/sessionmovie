@@ -5,6 +5,7 @@ import {
   useCurrentFrame,
 } from "remotion";
 import { EASE_BACK_OUT } from "../../../easing";
+import { cameraDrift } from "../../../effects";
 import { statsSchedule } from "../../../timing";
 import type { StatsScene } from "../../../screenplay";
 import { theme } from "../../../theme";
@@ -32,6 +33,7 @@ export const Stats: React.FC<{
   durationInFrames: number;
 }> = ({ scene, caption, durationInFrames }) => {
   const frame = useCurrentFrame();
+  const drift = cameraDrift(frame, "classic-stats", durationInFrames);
 
   const cardIn = pop(frame, 0);
   // Beat anchors come from the shared timing module (voiceover aligns to
@@ -59,6 +61,7 @@ export const Stats: React.FC<{
         fontFamily: theme.mono,
         justifyContent: "center",
         alignItems: "center",
+        transform: drift.transform,
         padding: 60,
       }}
     >

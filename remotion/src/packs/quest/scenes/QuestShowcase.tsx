@@ -3,7 +3,7 @@ import { CornerMascot } from "../../../characters/CornerMascot";
 import { EASE_BACK_OUT, EASE_OUT } from "../../../easing";
 import type { ShowcaseScene } from "../../../screenplay";
 import { showcaseSchedule } from "../../../timing";
-import { flash, shake } from "../../../effects";
+import { cameraDrift, flash, shake } from "../../../effects";
 import { Caption } from "../../Caption";
 import { Monster } from "../Monster";
 import { quest } from "../theme";
@@ -30,6 +30,7 @@ export const QuestShowcase: React.FC<{
   durationInFrames: number;
 }> = ({ scene, caption, durationInFrames }) => {
   const frame = useCurrentFrame();
+  const drift = cameraDrift(frame, "quest-showcase", durationInFrames);
   const { verdictStart, testRun, captionIn: captionInStart } = showcaseSchedule(durationInFrames);
   const verdict = VERDICT[scene.verdict];
 
@@ -58,7 +59,7 @@ export const QuestShowcase: React.FC<{
         fontFamily: quest.mono,
         justifyContent: "center",
         padding: 50,
-        transform: `translate(${hit.x}px, ${hit.y}px)`,
+        transform: `${drift.transform} translate(${hit.x}px, ${hit.y}px)`,
       }}
     >
       {/* the boss looms over the record of what it did */}
