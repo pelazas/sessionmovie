@@ -8,6 +8,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { remotionCliInstalled, remotionDir, repoRoot, runNpx } from "./workspace.js";
+import { checkApiKey } from "../voiceover/tts.js";
 
 const MIN_NODE_MAJOR = 18;
 
@@ -77,6 +78,30 @@ if (remotionCliInstalled()) {
 
 // 4. ffmpeg — deliberately NOT a requirement; say so to preempt the question.
 ok("ffmpeg not required — Remotion bundles its own encoder");
+
+// 5. ElevenLabs key — voiceover is opt-in (docs/audio.md), so no key is fine;
+// a key that IS set gets validated now so it fails here, not mid-render.
+const elevenLabsKey = process.env["ELEVENLABS_API_KEY"];
+if (!elevenLabsKey) {
+  process.stdout.write(
+    "- voiceover skipped — ELEVENLABS_API_KEY not set (voiceover is opt-in)\n",
+  );
+} else {
+  const keyCheck = await checkApiKey(elevenLabsKey);
+  if (keyCheck.ok) {
+    ok("ELEVENLABS_API_KEY accepted by ElevenLabs");
+  } else if (keyCheck.kind === "invalid") {
+    bad(
+      `ELEVENLABS_API_KEY rejected by ElevenLabs (${keyCheck.detail})`,
+      "create a fresh key at https://elevenlabs.io (Profile → API keys) and re-export ELEVENLABS_API_KEY",
+    );
+  } else {
+    bad(
+      `could not validate ELEVENLABS_API_KEY — ElevenLabs unreachable (${keyCheck.detail})`,
+      "check network/proxy and re-run doctor; or unset ELEVENLABS_API_KEY to render without voiceover",
+    );
+  }
+}
 
 process.stdout.write("\n");
 if (failures === 0) {

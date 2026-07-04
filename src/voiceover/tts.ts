@@ -38,6 +38,40 @@ export function ttsConfigFromEnv(env: NodeJS.ProcessEnv = process.env): TTSConfi
   };
 }
 
+const KEY_CHECK_TIMEOUT_MS = 10_000;
+
+export type ApiKeyCheckResult =
+  | { ok: true }
+  | { ok: false; kind: "invalid" | "unavailable"; detail: string };
+
+/**
+ * Validate an API key with the cheapest authenticated call (GET /v1/voices) so
+ * `doctor` can reject a bad key before a render instead of mid-render. 401/403
+ * mean the key is bad; anything else (network, 5xx) is ElevenLabs being
+ * unavailable, which is not the user's key's fault.
+ */
+export async function checkApiKey(
+  apiKey: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<ApiKeyCheckResult> {
+  let response: Response;
+  try {
+    response = await fetchImpl(`${API_BASE}/voices`, {
+      method: "GET",
+      headers: { "xi-api-key": apiKey },
+      signal: AbortSignal.timeout(KEY_CHECK_TIMEOUT_MS),
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    // The key must never surface, even via an exotic error message.
+    const detail = message.replaceAll(apiKey, "***");
+    return { ok: false, kind: "unavailable", detail };
+  }
+  if (response.ok) return { ok: true };
+  const kind = response.status === 401 || response.status === 403 ? "invalid" : "unavailable";
+  return { ok: false, kind, detail: `HTTP ${response.status}` };
+}
+
 import type { CharacterAlignment } from "./types.js";
 export type { CharacterAlignment } from "./types.js";
 
