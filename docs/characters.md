@@ -2,7 +2,7 @@
 
 Two puppet characters carry the movie's emotion: **the agent** (an original robot mascot) and **the user** (a hoodie-dev avatar). The code artifacts stay in the movie as proof — but the characters are the protagonists.
 
-> Narrative rules moved up a level: see **storytelling.md** for the recognition
+> Narrative rules moved up a level: see **v1-storychange.md** for the recognition
 > contract, dialogue-is-documentary, and text economy. The money-shot rule below stands.
 
 ## Tone rule they exist to serve

@@ -1,4 +1,4 @@
-# Storytelling: recognition & text economy
+# v1 story change: recognition & text economy
 
 The rules that decide whether a movie *lands* for the person who lived the session. Written after the first full-pipeline render (2026-07-04): the quest persona translated a real day into fantasy dialect, and the owner of the session couldn't recognize his own moments. These rules fix that class of failure. They govern prompt v4+, the punch-up pass, and both packs' renderers.
 
