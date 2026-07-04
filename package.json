@@ -10,7 +10,8 @@
   "scripts": {
     "parse": "tsx src/cli/parse.ts",
     "validate": "tsx src/cli/validate.ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p remotion",
+    "test": "node --import tsx --test scripts/golden.test.ts",
     "render": "npm run render -w @sessionmovie/renderer"
   },
   "dependencies": {

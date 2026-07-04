@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install (root + remotion workspace)
+        run: npm ci
+
+      - name: Typecheck (pipeline + scripts + remotion, matches local npm run typecheck)
+        run: npm run typecheck
+
+      - name: Validate screenplay fixtures
+        run: |
+          shopt -s nullglob
+          files=(fixtures/screenplays/*.json)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "no screenplay fixtures found" >&2
+            exit 1
+          fi
+          for f in "${files[@]}"; do
+            npm run --silent validate -- "$f"
+          done
+
+      - name: Golden tests
+        run: npm test
+
+      # Primary gate: the scrub script itself in --check mode — exercises the
+      # exact redact.ts patterns, so there is no second pattern list to drift.
+      - name: Fixture corpus scrub check
+        run: npx tsx scripts/scrub-fixtures.ts --check
+
+      # Defense-in-depth: a coarse grep over ALL of fixtures/ (screenplays and
+      # goldens included). Deliberately broad; must FAIL when it matches.
+      - name: Fixture leak grep (defense in depth)
+        run: |
+          # -l: print matching FILES only — never echo the matched content into public CI logs.
+          if grep -rElP 'AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_|glpat-|sk[-_](live|test|ant|proj)[-_]?[A-Za-z0-9_-]{10,}|xox[bpars]-|AIza[0-9A-Za-z_-]{35}|npm_[A-Za-z0-9]{36}|-----BEGIN|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.|/Users/|-Users-(?!dev\b)[A-Za-z0-9._]+|pelazas' fixtures/ --include='*.json' --include='*.jsonl'; then
+            echo "::error::leak pattern matched in the files listed above — run scripts/scrub-fixtures.ts and inspect locally" >&2
+            exit 1
+          fi
+          echo "corpus clean"

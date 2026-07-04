@@ -1,0 +1,23 @@
+{
+  "fixture": "star.jsonl",
+  "totals": {
+    "turns": 1,
+    "toolCalls": 32,
+    "filesTouched": 8,
+    "added": 856,
+    "removed": 0,
+    "commands": 10,
+    "failedCommands": 0
+  },
+  "result": {
+    "kind": "screenplay",
+    "sceneCount": 4,
+    "sceneTypes": [
+      "title",
+      "action",
+      "showcase",
+      "stats"
+    ],
+    "targetDurationSec": 50
+  }
+}

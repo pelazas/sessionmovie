@@ -82,9 +82,16 @@ export function mask(label: string): string {
   return `[••••:${label}]`;
 }
 
-/** Scrub home-directory usernames from paths: /Users/<name>/… → ~/… */
+/**
+ * Scrub home-directory usernames from paths: /Users/<name>/… → ~/…
+ * Also covers Claude Code's dash-encoded project slugs
+ * (~/.claude/projects/-Users-<name>-repo, scratchpad dirs): the username
+ * segment is replaced, the rest of the slug survives.
+ */
 export function scrubPaths(input: string): string {
-  return input.replace(/(?:\/home|\/Users)\/[A-Za-z0-9._-]+/g, "~");
+  return input
+    .replace(/(?:\/home|\/Users)\/[A-Za-z0-9._-]+/g, "~")
+    .replace(/-(?:home|Users)-[A-Za-z0-9._]+/g, "-Users-dev");
 }
 
 /** Scrub email addresses (PII). */

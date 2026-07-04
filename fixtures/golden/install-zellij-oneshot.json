@@ -1,0 +1,22 @@
+{
+  "fixture": "install-zellij-oneshot.jsonl",
+  "totals": {
+    "turns": 1,
+    "toolCalls": 3,
+    "filesTouched": 0,
+    "added": 0,
+    "removed": 0,
+    "commands": 3,
+    "failedCommands": 1
+  },
+  "result": {
+    "kind": "screenplay",
+    "sceneCount": 3,
+    "sceneTypes": [
+      "title",
+      "action",
+      "stats"
+    ],
+    "targetDurationSec": 50
+  }
+}
