@@ -1,5 +1,5 @@
 import type { Screenplay } from "../screenplay";
-import { sceneFrames } from "../Classic";
+import { sceneFrames } from "../timing";
 
 // Derives every SFX cue frame from the screenplay with pure frame math.
 //

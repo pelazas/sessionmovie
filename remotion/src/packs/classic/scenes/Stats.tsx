@@ -4,10 +4,10 @@ import {
   interpolate,
   useCurrentFrame,
 } from "remotion";
-import { EASE_BACK_OUT } from "../easing";
-import type { StatsScene } from "../screenplay";
-import { theme } from "../theme";
-import { Caption } from "./Caption";
+import { EASE_BACK_OUT } from "../../../easing";
+import type { StatsScene } from "../../../screenplay";
+import { theme } from "../../../theme";
+import { Caption } from "../../Caption";
 
 const countUp = (frame: number, start: number, value: number): number =>
   Math.round(
