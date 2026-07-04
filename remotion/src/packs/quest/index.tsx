@@ -1,4 +1,4 @@
-import { ClassicAudio } from "../../audio/ClassicAudio";
+import { QuestAudio } from "../../audio/QuestAudio";
 import { PERSONAS } from "../../../../src/genre/personas";
 import type { GenrePack } from "../types";
 import { quest } from "./theme";
@@ -12,8 +12,7 @@ import { QuestTitle } from "./scenes/QuestTitle";
  * The quest pack (issue #9): the session as a monster hunt. The metaphor is
  * a RENDERING decision — the screenplay stays genre-neutral; this pack just
  * decides that an action scene is a battle and a red test is a boss attack.
- * Audio reuses the classic CC0 set for v1 (docs/genre-packs.md allows it;
- * new assets would need CREDITS.md in the same PR).
+ * Audio: quest's own CC0 music bed (CREDITS.md) over the shared v1 SFX set.
  */
 export const questPack: GenrePack = {
   id: "quest",
@@ -35,7 +34,7 @@ export const questPack: GenrePack = {
       <QuestStats scene={scene} caption={scene.caption} durationInFrames={durationInFrames} />
     ),
   },
-  Audio: ClassicAudio,
+  Audio: QuestAudio,
   background: quest.bg,
   // One source of truth for persona voices: src/genre/personas.ts (pure module).
   captionPersona: PERSONAS.quest,
