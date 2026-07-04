@@ -1,26 +1,63 @@
 {
   "name": "sessionmovie",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.1.0",
   "type": "module",
+  "description": "Turn a Claude Code session transcript into a 45-60s rendered movie.",
+  "keywords": [
+    "claude-code",
+    "claude",
+    "remotion",
+    "video",
+    "transcript",
+    "cli"
+  ],
+  "license": "MIT",
+  "author": "Carlos Pelazas",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pelazas/sessionmovie.git"
+  },
+  "homepage": "https://github.com/pelazas/sessionmovie#readme",
+  "bugs": "https://github.com/pelazas/sessionmovie/issues",
+  "bin": {
+    "sessionmovie": "dist/bin.js"
+  },
+  "files": [
+    "dist",
+    "remotion/src",
+    "remotion/public/audio",
+    "remotion/package.json",
+    "remotion/remotion.config.ts",
+    "remotion/tsconfig.json",
+    "CREDITS.md"
+  ],
   "workspaces": [
     "remotion"
   ],
-  "description": "Turn a Claude Code session transcript into a 45-60s rendered movie.",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "parse": "tsx src/cli/parse.ts",
     "validate": "tsx src/cli/validate.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p remotion",
     "test": "node --import tsx --test scripts/golden.test.ts src/voiceover/voiceover.test.ts src/voiceover/sync.test.ts src/genre/rules.test.ts src/screenwriter/punchup.test.ts src/quantize.test.ts src/facts/facts.test.ts",
+    "build": "tsup",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build",
     "render": "npm run render -w @sessionmovie/renderer",
     "movie": "tsx src/cli/movie.ts",
     "doctor": "tsx src/cli/doctor.ts"
   },
   "dependencies": {
+    "@remotion/cli": "4.0.484",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.484",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "tsup": "^8.5.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
   }

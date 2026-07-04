@@ -5,12 +5,10 @@
  * docs/distribution-and-cost.md is binding: no silent multi-minute steps).
  * Exit 0 when everything is ready to render, 1 when something needs fixing.
  */
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { remotionCliInstalled, remotionDir, repoRoot, runNpx } from "./workspace.js";
+import { remotionCliInstalled, remotionCliVersion, repoRoot, runRemotion } from "./workspace.js";
 import { checkApiKey } from "../voiceover/tts.js";
 
-const MIN_NODE_MAJOR = 18;
+const MIN_NODE_MAJOR = 20; // matches package.json "engines"
 
 let failures = 0;
 const ok = (msg: string) => process.stdout.write(`✓ ${msg}\n`);
@@ -33,27 +31,14 @@ if (nodeMajor >= MIN_NODE_MAJOR) {
   );
 }
 
-// 2. Workspace install state — the Remotion CLI must be resolvable.
+// 2. Install state — the Remotion CLI must be resolvable from this package.
 if (remotionCliInstalled()) {
-  let version = "";
-  try {
-    for (const dir of [repoRoot, remotionDir]) {
-      const pkg = join(dir, "node_modules", "@remotion", "cli", "package.json");
-      try {
-        version = (JSON.parse(readFileSync(pkg, "utf8")) as { version: string }).version;
-        break;
-      } catch {
-        // try the other location
-      }
-    }
-  } catch {
-    // version stays cosmetic-only
-  }
-  ok(`workspace installed (@remotion/cli${version ? ` ${version}` : ""} resolvable)`);
+  const version = remotionCliVersion();
+  ok(`@remotion/cli${version ? ` ${version}` : ""} resolvable`);
 } else {
   bad(
-    "workspace not installed — @remotion/cli is not resolvable",
-    `run \`npm install\` in ${repoRoot}`,
+    "@remotion/cli is not resolvable",
+    `run \`npm install\` in ${repoRoot} (dev checkout) or reinstall sessionmovie`,
   );
 }
 
@@ -63,17 +48,17 @@ if (remotionCliInstalled()) {
   process.stdout.write(
     "… checking headless browser (this downloads ~150 MB the first time — progress below)\n",
   );
-  const code = await runNpx(["remotion", "browser", "ensure"]);
+  const code = await runRemotion(["browser", "ensure"]);
   if (code === 0) {
     ok("headless browser present");
   } else {
     bad(
-      `\`npx remotion browser ensure\` failed (exit ${code})`,
+      `\`remotion browser ensure\` failed (exit ${code})`,
       "re-run `sessionmovie doctor` (flaky downloads happen); check network/proxy settings",
     );
   }
 } else {
-  process.stdout.write("- headless browser check skipped (install the workspace first)\n");
+  process.stdout.write("- headless browser check skipped (install first)\n");
 }
 
 // 4. ffmpeg — deliberately NOT a requirement; say so to preempt the question.

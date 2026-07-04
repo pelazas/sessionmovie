@@ -10,7 +10,7 @@ import { parseTranscript } from "../parser/index.js";
 import { writeScreenplay } from "../screenwriter/heuristic.js";
 import { writeScreenplayLLMDetailed } from "../screenwriter/llm.js";
 import { ScreenplaySchema, type Screenplay } from "../screenplay/schema.js";
-import { remotionCliInstalled, runNpx } from "./workspace.js";
+import { remotionCliInstalled, runRemotion } from "./workspace.js";
 // voiceover integration (feat/voiceover)
 import { buildVoiceoverManifest } from "../voiceover/manifest.js";
 import { ttsConfigFromEnv } from "../voiceover/tts.js";
@@ -42,7 +42,8 @@ function movieDurationSec(screenplay: Screenplay): number {
 
 function usage(): never {
   process.stderr.write(
-    "usage: sessionmovie <transcript.jsonl> [--out movie.mp4] [--genre <id>] [--keep-screenplay] [--no-llm] [--voiceover] [--refresh-voices]\n",
+    "usage: sessionmovie <transcript.jsonl> [--out movie.mp4] [--genre <id>] [--keep-screenplay] [--no-llm] [--voiceover] [--refresh-voices]\n" +
+      "       sessionmovie doctor — check setup (node, remotion, browser, voiceover key)\n",
   );
   process.exit(1);
 }
@@ -252,8 +253,7 @@ mkdirSync(dirname(outPath), { recursive: true });
 writeFileSync(screenplayPath, `${JSON.stringify(renderProps, null, 2)}\n`);
 
 process.stdout.write("   rendering with Remotion (first run may take a few minutes)…\n");
-const code = await runNpx([
-  "remotion",
+const code = await runRemotion([
   "render",
   "src/index.ts",
   genreComposition, // genre auto-pick block (issue #10) — was hardcoded "Classic"
