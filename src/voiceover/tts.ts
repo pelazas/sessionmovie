@@ -38,29 +38,55 @@ export function ttsConfigFromEnv(env: NodeJS.ProcessEnv = process.env): TTSConfi
   };
 }
 
-/** Synthesize one utterance; resolves to MP3 bytes. */
-export async function synthesize(text: string, config: TTSConfig): Promise<Buffer> {
-  const response = await fetch(`${API_BASE}/text-to-speech/${config.voiceId}`, {
-    method: "POST",
-    headers: {
-      "xi-api-key": config.apiKey,
-      "Content-Type": "application/json",
+import type { CharacterAlignment } from "./types.js";
+export type { CharacterAlignment } from "./types.js";
+
+export interface SynthesisResult {
+  audio: Buffer;
+  /** null if the API ever omits alignment — callers degrade to no-highlight. */
+  alignment: CharacterAlignment | null;
+}
+
+/**
+ * Synthesize one utterance via the with-timestamps endpoint; resolves to MP3
+ * bytes plus character timestamps (measured narration is reality — captions
+ * sync to these, docs/audio.md).
+ */
+export async function synthesizeWithTimestamps(
+  text: string,
+  config: TTSConfig,
+): Promise<SynthesisResult> {
+  const response = await fetch(
+    `${API_BASE}/text-to-speech/${config.voiceId}/with-timestamps`,
+    {
+      method: "POST",
+      headers: {
+        "xi-api-key": config.apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        text,
+        model_id: config.model,
+        voice_settings: config.settings,
+      }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     },
-    body: JSON.stringify({
-      text,
-      model_id: config.model,
-      voice_settings: config.settings,
-    }),
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  });
+  );
   if (!response.ok) {
     // Response bodies are ElevenLabs error JSON — safe to surface (no key).
     const detail = (await response.text().catch(() => "")).slice(0, 300);
     throw new Error(`ElevenLabs TTS failed (HTTP ${response.status}): ${detail}`);
   }
-  const bytes = Buffer.from(await response.arrayBuffer());
-  if (bytes.length === 0) {
-    throw new Error("ElevenLabs TTS returned an empty body");
+  const payload = (await response.json().catch(() => null)) as {
+    audio_base64?: string;
+    alignment?: CharacterAlignment | null;
+  } | null;
+  if (!payload?.audio_base64) {
+    throw new Error("ElevenLabs TTS returned no audio_base64 body");
   }
-  return bytes;
+  const audio = Buffer.from(payload.audio_base64, "base64");
+  if (audio.length === 0) {
+    throw new Error("ElevenLabs TTS returned an empty audio payload");
+  }
+  return { audio, alignment: payload.alignment ?? null };
 }

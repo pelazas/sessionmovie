@@ -11,7 +11,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { remotionDir } from "../cli/workspace.js";
-import { synthesize, type TTSConfig } from "./tts.js";
+import { synthesizeWithTimestamps, type TTSConfig } from "./tts.js";
 
 /** Path under remotion/public/ — the only tree staticFile() can serve. */
 export const CACHE_DIR_NAME = "voiceover-cache";
@@ -37,13 +37,18 @@ export interface CacheResult {
   absolutePath: string;
   /** Path relative to remotion/public/ — what staticFile() takes. */
   publicPath: string;
+  /** Absolute path to the character-timestamps sidecar (same key, .timestamps.json). */
+  timestampsPath: string;
   /** True when this call hit the network. */
   apiCalled: boolean;
 }
 
 /**
- * Return the cached mp3 for this utterance, synthesizing (and caching) it on
- * miss. `refresh` forces re-synthesis (--refresh-voices).
+ * Return the cached mp3 + timestamps sidecar for this utterance, synthesizing
+ * (and caching both) on miss. The sidecar shares the mp3's content-addressed
+ * key, so audio and its timing can never drift apart. A pre-sidecar cache
+ * entry (mp3 only, from the non-timestamped endpoint era) counts as a miss —
+ * one re-synthesis upgrades it. `refresh` forces re-synthesis (--refresh-voices).
  */
 export async function getOrSynthesize(
   text: string,
@@ -54,12 +59,14 @@ export async function getOrSynthesize(
   const file = `${key}.mp3`;
   const absolutePath = join(cacheDir, file);
   const publicPath = `${CACHE_DIR_NAME}/${file}`;
+  const timestampsPath = join(cacheDir, `${key}.timestamps.json`);
 
-  if (!options.refresh && existsSync(absolutePath)) {
-    return { absolutePath, publicPath, apiCalled: false };
+  if (!options.refresh && existsSync(absolutePath) && existsSync(timestampsPath)) {
+    return { absolutePath, publicPath, timestampsPath, apiCalled: false };
   }
-  const bytes = await synthesize(text, config);
+  const { audio, alignment } = await synthesizeWithTimestamps(text, config);
   mkdirSync(cacheDir, { recursive: true });
-  writeFileSync(absolutePath, bytes);
-  return { absolutePath, publicPath, apiCalled: true };
+  writeFileSync(absolutePath, audio);
+  writeFileSync(timestampsPath, `${JSON.stringify(alignment)}\n`);
+  return { absolutePath, publicPath, timestampsPath, apiCalled: true };
 }
