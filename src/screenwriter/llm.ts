@@ -8,7 +8,6 @@
  * or every attempt fails validation, falls back to the deterministic
  * heuristic screenwriter with a printed notice.
  */
-import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,6 +17,7 @@ import {
   type ScreenwriterOutput,
 } from "../screenplay/schema.js";
 import type { Timeline } from "../parser/types.js";
+import { claudeAvailable, extractJson, runClaude } from "./claude.js";
 import { digestTimeline } from "./digest.js";
 import { writeScreenplay as writeScreenplayHeuristic } from "./heuristic.js";
 
@@ -25,8 +25,6 @@ export const PROMPT_VERSION = "v2";
 
 const DEFAULT_TARGET_DURATION_SEC = 50;
 const DEFAULT_MAX_ATTEMPTS = 3;
-const ATTEMPT_TIMEOUT_MS = 240_000;
-const MAX_OUTPUT_BYTES = 10 * 1024 * 1024;
 
 export interface LLMScreenwriterOptions {
   /** Path or name of the Claude Code binary. */
@@ -64,37 +62,8 @@ function buildPrompt(digest: string, targetDurationSec: number): string {
     .replaceAll("{{DIGEST}}", digest);
 }
 
-function claudeAvailable(bin: string): boolean {
-  const probe = spawnSync(bin, ["--version"], { encoding: "utf8", timeout: 15_000 });
-  return probe.error === undefined && probe.status === 0;
-}
 
-/** One `claude -p` invocation; the prompt goes in on stdin to dodge argv limits. */
-function runClaude(bin: string, prompt: string, model: string | undefined): string {
-  const args = ["-p", "--output-format", "text"];
-  if (model) args.push("--model", model);
-  const run = spawnSync(bin, args, {
-    input: prompt,
-    encoding: "utf8",
-    timeout: ATTEMPT_TIMEOUT_MS,
-    maxBuffer: MAX_OUTPUT_BYTES,
-  });
-  if (run.error) throw run.error;
-  if (run.status !== 0) {
-    throw new Error(`claude exited ${run.status}: ${(run.stderr ?? "").trim().slice(0, 500)}`);
-  }
-  return run.stdout ?? "";
-}
 
-/** Models fence and preface JSON despite instructions; take first `{` to last `}`. */
-function extractJson(text: string): string {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start === -1 || end <= start) {
-    throw new Error("no JSON object found in model output");
-  }
-  return text.slice(start, end + 1);
-}
 
 interface ValidationFailure {
   issues: string;
