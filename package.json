@@ -11,7 +11,7 @@
     "parse": "tsx src/cli/parse.ts",
     "validate": "tsx src/cli/validate.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p remotion",
-    "test": "node --import tsx --test scripts/golden.test.ts src/voiceover/voiceover.test.ts",
+    "test": "node --import tsx --test scripts/golden.test.ts src/voiceover/voiceover.test.ts src/genre/rules.test.ts",
     "render": "npm run render -w @sessionmovie/renderer",
     "movie": "tsx src/cli/movie.ts",
     "doctor": "tsx src/cli/doctor.ts"
