@@ -33,12 +33,14 @@ export const shake = (
   };
 };
 
-/** Screen flash: opacity 1 → 0 over `durationFrames`, starting at `at`. */
+/** Screen flash: opacity 1 → 0 over `durationFrames`, starting at `at`; zero before the hit. */
 export const flash = (frame: number, at: number, durationFrames = 6): number =>
-  interpolate(frame, [at, at + durationFrames], [1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
+  frame < at
+    ? 0
+    : interpolate(frame, [at, at + durationFrames], [1, 0], {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+      });
 
 /** Scale pulse: 1+amount at the hit, easing back to exactly 1. */
 export const zoomPulse = (frame: number, at: number, amount = 0.06, durationFrames = 12): number => {
