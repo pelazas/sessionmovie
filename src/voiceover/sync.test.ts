@@ -9,7 +9,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Screenplay } from "../screenplay/schema.js";
 import type { SceneVoiceoverCue, VoiceoverCue } from "./types.js";
-import { captionRenderState, sceneLocalCue, wordsFromAlignment } from "./sync.js";
+import {
+  captionRenderState,
+  sceneLocalCue,
+  wordsFromAlignment,
+} from "../../remotion/src/packs/voiceoverSync.js";
 
 const tenth = (i: number) => Math.round(i * 100) / 1000; // exact 0.1 steps, no FP drift
 const alignmentFor = (text: string) => ({

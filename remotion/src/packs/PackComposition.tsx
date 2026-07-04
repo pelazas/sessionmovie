@@ -1,6 +1,6 @@
 import { AbsoluteFill, Series, useVideoConfig } from "remotion";
-import { sceneLocalCue } from "../../../src/voiceover/sync";
 import type { VoiceoverManifest } from "../../../src/voiceover/types";
+import { sceneLocalCue } from "./voiceoverSync";
 import type { Scene, Screenplay } from "../screenplay";
 import { sceneFrames } from "../timing";
 import { VoiceoverCueContext, type GenrePack } from "./types";

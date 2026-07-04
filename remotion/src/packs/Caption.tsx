@@ -1,8 +1,8 @@
 import { useContext } from "react";
 import { useCurrentFrame } from "remotion";
-import { captionRenderState } from "../../../src/voiceover/sync";
 import { theme } from "../theme";
 import { VoiceoverCueContext } from "./types";
+import { captionRenderState } from "./voiceoverSync";
 
 /**
  * Editorial caption pinned to the bottom of a scene.

@@ -17,7 +17,7 @@ import type { Genre } from "../genre/rules.js";
 import type { Screenplay } from "../screenplay/schema.js";
 import { remotionDir } from "../cli/workspace.js";
 import { getOrSynthesize } from "./cache.js";
-import { wordsFromAlignment } from "./sync.js";
+import { wordsFromAlignment } from "../../remotion/src/packs/voiceoverSync.js";
 import { DEFAULT_VOICE_ID, type TTSConfig } from "./tts.js";
 
 import type { CharacterAlignment, VoiceoverCue, VoiceoverManifest } from "./types.js";

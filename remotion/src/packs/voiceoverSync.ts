@@ -1,6 +1,8 @@
 /**
  * Voiceover↔caption sync math — pure functions shared by the CLI (manifest
- * build) and the renderer (packs/Caption.tsx via PackComposition plumbing).
+ * build, which imports this with a .js suffix like it does ../timing.js) and
+ * the renderer (Caption via PackComposition plumbing). Lives on the renderer
+ * side because webpack bundles it — extensionless imports only here.
  *
  * Principle (binding): measured narration is reality; captions adapt to it;
  * scene durations adapt to neither — the fit rule in manifest.ts is unchanged.
@@ -8,14 +10,14 @@
  * Everything here is deterministic frame math. No node APIs, no zod, no
  * remotion runtime — safe to import from compositions and node:test alike.
  */
-import type { Scene } from "../../remotion/src/screenplay/index.js";
-import { captionInFrame, sceneFrames } from "../../remotion/src/timing.js";
+import type { Scene } from "../screenplay";
+import { captionInFrame, sceneFrames } from "../timing";
 import type {
   CharacterAlignment,
   SceneVoiceoverCue,
   VoiceoverCue,
   WordTiming,
-} from "./types.js";
+} from "../../../src/voiceover/types";
 
 /** Caption fade-in length once its cue starts (frames). */
 export const CAPTION_IN_FRAMES = 8;
