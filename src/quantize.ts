@@ -81,8 +81,12 @@ export function quantizeToBeats(
   if (!changed) return screenplay;
 
   // The last scene absorbs the drift, so the schema's ±10% total-duration
-  // tolerance is untouched: valid in → valid out.
-  adjusted[targets.length - 1] = total - cumSec;
+  // tolerance is untouched. If absorption would squeeze it below the floor
+  // (possible when a later cut was skipped after an earlier nudge), abort:
+  // quantize-or-nothing keeps the valid-in → valid-out contract.
+  const lastTarget = total - cumSec;
+  if (lastTarget < minScene) return screenplay;
+  adjusted[targets.length - 1] = lastTarget;
 
   return {
     ...screenplay,
