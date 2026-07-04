@@ -43,7 +43,8 @@ function movieDurationSec(screenplay: Screenplay): number {
 function usage(): never {
   process.stderr.write(
     "usage: sessionmovie <transcript.jsonl> [--out movie.mp4] [--genre <id>] [--keep-screenplay] [--no-llm] [--voiceover] [--refresh-voices]\n" +
-      "       sessionmovie doctor — check setup (node, remotion, browser, voiceover key)\n",
+      "       sessionmovie doctor — check setup (node, remotion, browser, voiceover key)\n" +
+      "       sessionmovie prompt <transcript.jsonl> — print the screenwriter prompt (skill path)\n",
   );
   process.exit(1);
 }
