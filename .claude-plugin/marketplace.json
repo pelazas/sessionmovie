@@ -1,0 +1,12 @@
+{
+  "name": "sessionmovie",
+  "description": "sessionmovie — movies of Claude Code sessions",
+  "owner": { "name": "Carlos Pelazas" },
+  "plugins": [
+    {
+      "name": "sessionmovie",
+      "source": "./",
+      "description": "Turn a Claude Code session into a 45-60s rendered movie — /movie films the current session."
+    }
+  ]
+}
