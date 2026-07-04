@@ -114,3 +114,13 @@ describe("quantizeToBeats", () => {
     assert.deepEqual(quantizeToBeats(input, [], FPS), input);
   });
 });
+
+describe("last-scene floor guard", () => {
+  it("aborts (returns input) when drift would squeeze the last scene below the floor", () => {
+    // scene 2 is tiny; nudging cut 0 later with cut 1 skipped must not go negative
+    const sp = screenplayWith([20, 25.6, 0.05]);
+    const beats = grid(0.3, 29.7, 2); // a beat near cut 0 (+0.3s), nothing near cut 1
+    const out = quantizeToBeats(sp, beats, FPS);
+    assert.deepEqual(out, sp);
+  });
+});
