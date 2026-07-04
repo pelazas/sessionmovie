@@ -108,7 +108,10 @@ export const Dialogue: React.FC<{
           // Short dialogues bottom-aligned leave ~55% dead space up top;
           // centering balances them. Long stacks stay bottom-anchored so the
           // chat-log supersede fade keeps working (issue #13).
-          justifyContent: scene.lines.length <= 3 ? "center" : "flex-end",
+          // Center only short exchanges: 3 near-max lines (~630px wrapped) can
+          // overflow the 510px area DOWNWARD into the puppets' heads when
+          // centered; bottom-anchoring keeps the hard clearance above them.
+          justifyContent: scene.lines.length <= 2 ? "center" : "flex-end",
           gap: 40,
         }}
       >
