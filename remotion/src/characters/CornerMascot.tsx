@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Easing, interpolate, random, useCurrentFrame } from "remotion";
 import type { Emotion } from "../screenplay";
 import { theme } from "../theme";
@@ -13,14 +14,22 @@ import { Mascot, type Pose } from "./Mascot";
 const CONFETTI_COLORS = [theme.green, theme.blue, theme.purple, theme.yellow, theme.red];
 const CONFETTI_COUNT = 16;
 
-const Confetti: React.FC = () => {
+const Confetti: React.FC<{ seed: string }> = ({ seed }) => {
   const frame = useCurrentFrame();
   const f = frame % 70;
+  // Particle params depend on the seed only — computed once, not per frame.
+  // Seed-scoped so two confetti bursts in one movie never share trajectories.
+  const particles = useMemo(
+    () =>
+      Array.from({ length: CONFETTI_COUNT }, (_, i) => ({
+        angle: random(`${seed}-confetti-angle-${i}`) * Math.PI * 2,
+        speed: 3 + random(`${seed}-confetti-speed-${i}`) * 4,
+      })),
+    [seed],
+  );
   return (
     <>
-      {Array.from({ length: CONFETTI_COUNT }, (_, i) => {
-        const angle = random(`confetti-angle-${i}`) * Math.PI * 2;
-        const speed = 3 + random(`confetti-speed-${i}`) * 4;
+      {particles.map(({ angle, speed }, i) => {
         const x = Math.cos(angle) * speed * f;
         const y = Math.sin(angle) * speed * f * 0.7 + f * f * 0.045; // gravity
         const fade = interpolate(f, [30, 62], [1, 0], {
@@ -72,7 +81,7 @@ export const CornerMascot: React.FC<{
         transformOrigin: "bottom center",
       }}
     >
-      {confetti ? <Confetti /> : null}
+      {confetti ? <Confetti seed={seed ?? "corner"} /> : null}
       <Mascot character="agent" emotion={emotion} pose={pose} size={size} seed={seed ?? "corner"} />
     </div>
   );

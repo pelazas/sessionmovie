@@ -139,10 +139,10 @@ export const Showcase: React.FC<{
       >
         {verdict.label}
       </div>
-      {caption ? <Caption text={caption} opacity={captionIn} /> : null}
       {/* corner-reaction mascot (issue #8): reacts when the verdict lands —
           collapses on fail, cheers with confetti on pass, smugly points on
-          reveal. Sequence restarts its clock so the pose spring fires then. */}
+          reveal. Sequence restarts its clock so the pose spring fires then.
+          Rendered BEFORE the caption so editorial text paints on top. */}
       <Sequence from={verdictStart} layout="none">
         {scene.verdict === "fail" ? (
           <CornerMascot pose="collapse" emotion="defeated" corner="bottom-left" seed="showcase-fail" />
@@ -152,6 +152,7 @@ export const Showcase: React.FC<{
           <CornerMascot pose="point" emotion="smug" corner="bottom-left" seed="showcase-reveal" />
         )}
       </Sequence>
+      {caption ? <Caption text={caption} opacity={captionIn} /> : null}
     </AbsoluteFill>
   );
 };

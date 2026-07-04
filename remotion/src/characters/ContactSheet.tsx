@@ -87,6 +87,7 @@ export const ContactSheet: React.FC = () => {
                 }}
               >
                 <Mascot
+                  blink={false}
                   character={character}
                   emotion={emotion}
                   pose={pose}
@@ -113,8 +114,8 @@ export const ContactSheet: React.FC = () => {
         <div style={{ width: LABEL_W, fontSize: 26, color: theme.textDim }}>120px check</div>
         {(["neutral", "panicking", "celebrating"] as Emotion[]).map((emotion) => (
           <div key={emotion} style={{ display: "flex", gap: 16 }}>
-            <Mascot character="agent" emotion={emotion} pose="idle" size={120} seed={`s-a-${emotion}`} />
-            <Mascot character="user" emotion={emotion} pose="idle" size={120} seed={`s-u-${emotion}`} />
+            <Mascot character="agent" emotion={emotion} pose="idle" size={120} seed={`s-a-${emotion}`} blink={false} />
+            <Mascot character="user" emotion={emotion} pose="idle" size={120} seed={`s-u-${emotion}`} blink={false} />
           </div>
         ))}
       </div>

@@ -160,14 +160,15 @@ export const Action: React.FC<{
           background: `linear-gradient(transparent, ${theme.bg})`,
         }}
       />
-      {caption ? <Caption text={caption} opacity={captionIn} /> : null}
       {/* corner-reaction mascot (issue #8): types along with the stream,
-          sweats for a beat whenever a red chip lands */}
+          sweats for a beat whenever a red chip lands. Rendered BEFORE the
+          caption so editorial text always paints on top of the puppet. */}
       <CornerMascot
         pose="typing"
         emotion={recentFailFrames >= 0 && frame - recentFailFrames < 55 ? "panicking" : "neutral"}
         seed="action-corner"
       />
+      {caption ? <Caption text={caption} opacity={captionIn} /> : null}
     </AbsoluteFill>
   );
 };
