@@ -10,6 +10,10 @@ export const SHARED_SFX: Record<SfxKind, string> = {
   tick: "audio/sfx-chip-tick.ogg",
   fail: "audio/sfx-fail-thud.ogg",
   pass: "audio/sfx-pass-chime.ogg",
+  // feat/effects (all CC0, CREDITS.md)
+  whoosh: "audio/sfx-transition-whoosh.ogg",
+  drone: "audio/sfx-tension-drone.ogg",
+  stinger: "audio/sfx-end-stinger.ogg",
 };
 
 export const SHARED_SFX_VOLUMES: Record<SfxKind, number> = {
@@ -17,6 +21,10 @@ export const SHARED_SFX_VOLUMES: Record<SfxKind, number> = {
   tick: 0.5,
   fail: 0.9,
   pass: 0.85,
+  // feat/effects
+  whoosh: 0.55,
+  drone: 0.4,
+  stinger: 0.75,
 };
 
 /** The classic pack's soundtrack: the cyber-runner bed over the shared SFX. */
