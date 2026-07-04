@@ -6,6 +6,7 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import { CornerMascot } from "../characters/CornerMascot";
 import type { ActionScene, ToolEvent } from "../screenplay";
 import { theme } from "../theme";
 import { Caption } from "./Caption";
@@ -59,6 +60,14 @@ export const Action: React.FC<{
   // Every chip that lands pushes the whole stack up by one slot.
   const scrollUp = progresses.reduce((acc, p) => acc + p, 0);
   const baselineY = height * 0.62;
+
+  // Landing frame of the most recent failed chip (-1 if none yet) —
+  // drives the corner mascot's sweat beat.
+  let recentFailFrames = -1;
+  scene.events.forEach((event, i) => {
+    const landed = 10 + i * interval + slideDur;
+    if (event.ok === false && frame >= landed) recentFailFrames = landed;
+  });
 
   const captionIn = interpolate(frame, [8, 25], [0, 1], {
     extrapolateLeft: "clamp",
@@ -152,6 +161,13 @@ export const Action: React.FC<{
         }}
       />
       {caption ? <Caption text={caption} opacity={captionIn} /> : null}
+      {/* corner-reaction mascot (issue #8): types along with the stream,
+          sweats for a beat whenever a red chip lands */}
+      <CornerMascot
+        pose="typing"
+        emotion={recentFailFrames >= 0 && frame - recentFailFrames < 55 ? "panicking" : "neutral"}
+        seed="action-corner"
+      />
     </AbsoluteFill>
   );
 };
