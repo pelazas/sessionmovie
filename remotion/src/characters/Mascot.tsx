@@ -28,8 +28,10 @@ export const Mascot: React.FC<{
   size?: number;
   /** Desynchronizes phase so two mascots never move in lockstep. */
   seed?: string;
+  /** Cursor-blink toggle — the contact sheet disables it so its fixed capture frame never shows mid-blink eyes. */
+  blink?: boolean;
   style?: CSSProperties;
-}> = ({ character, emotion, pose, size = 240, seed = character, style }) => {
+}> = ({ character, emotion, pose, size = 240, seed = character, blink = true, style }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
@@ -37,11 +39,16 @@ export const Mascot: React.FC<{
   const t = frame + phase;
 
   // Pose engagement springs, from the start of the enclosing sequence.
-  const settle = spring({ frame, fps, config: { damping: 200 } });
-  const bounce = spring({ frame, fps, config: { damping: 9, stiffness: 130 } });
-  const slump = spring({ frame, fps, config: { damping: 16, stiffness: 60 } });
+  // Computed only by the poses that use them — springs aren't free, and a
+  // contact sheet renders dozens of puppets per frame.
+  const settle = () => spring({ frame, fps, config: { damping: 200 } });
+  const bounce = () => spring({ frame, fps, config: { damping: 9, stiffness: 130 } });
+  const slump = () => spring({ frame, fps, config: { damping: 16, stiffness: 60 } });
 
   let rig: RigTransforms;
+  // cheer lifts the WHOLE puppet (legs included) — a jump, not a torso detaching
+  // from its shoes. Applied on the svg wrapper, outside the rig groups.
+  let lift = 0;
   switch (pose) {
     case "idle": {
       const bob = Math.sin(t * 0.08) * 3;
@@ -54,48 +61,53 @@ export const Mascot: React.FC<{
       break;
     }
     case "typing": {
+      const s = settle();
       const alt = Math.sin(t * 0.55);
       rig = {
-        body: rot(2 * settle, PIVOT.body),
-        head: `${rot(2 * settle, PIVOT.head)} translate(0 ${(Math.sin(t * 0.55 + 1) * 1.5).toFixed(2)})`,
+        body: rot(2 * s, PIVOT.body),
+        head: `${rot(2 * s, PIVOT.head)} translate(0 ${(Math.sin(t * 0.55 + 1) * 1.5).toFixed(2)})`,
         armL: rot(30 + 9 * alt, PIVOT.armL),
         armR: rot(-30 + 9 * alt * -1, PIVOT.armR),
       };
       break;
     }
     case "point": {
+      const s = settle();
+      const b = bounce();
       rig = {
-        body: rot(-2 * settle, PIVOT.body),
-        head: rot(-3 * settle, PIVOT.head),
-        armL: rot(6 * settle, PIVOT.armL),
+        body: rot(-2 * s, PIVOT.body),
+        head: rot(-3 * s, PIVOT.head),
+        armL: rot(6 * s, PIVOT.armL),
         // the money gesture: right arm swings up-forward with a little overshoot
-        armR: rot(-125 * bounce, PIVOT.armR),
+        armR: rot(-125 * b, PIVOT.armR),
       };
       break;
     }
     case "cheer": {
+      const b = bounce();
       const jump = Math.abs(Math.sin(t * 0.22)) * 9;
+      lift = jump * b;
       rig = {
-        body: `translate(0 ${(-jump * bounce).toFixed(2)})`,
-        head: rot(Math.sin(t * 0.22) * 4 * bounce, PIVOT.head),
-        armL: rot(135 * bounce, PIVOT.armL),
-        armR: rot(-135 * bounce, PIVOT.armR),
+        head: rot(Math.sin(t * 0.22) * 4 * b, PIVOT.head),
+        armL: rot(135 * b, PIVOT.armL),
+        armR: rot(-135 * b, PIVOT.armR),
       };
       break;
     }
     case "collapse": {
+      const sl = slump();
       rig = {
-        body: `translate(0 ${(8 * slump).toFixed(2)}) ${rot(6 * slump, PIVOT.body)}`,
-        head: rot(13 * slump, PIVOT.head),
-        armL: rot(-7 * slump, PIVOT.armL),
-        armR: rot(7 * slump, PIVOT.armR),
+        body: `translate(0 ${(8 * sl).toFixed(2)}) ${rot(6 * sl, PIVOT.body)}`,
+        head: rot(13 * sl, PIVOT.head),
+        armL: rot(-7 * sl, PIVOT.armL),
+        armR: rot(7 * sl, PIVOT.armR),
       };
       break;
     }
   }
 
   // Cursor blink: brief, every ~2.4s, character-desynced.
-  const blink = (frame + Math.floor(phase)) % 72 < 5;
+  const blinking = blink && (frame + Math.floor(phase)) % 72 < 5;
 
   const Char = character === "agent" ? Agent : User;
   return (
@@ -103,11 +115,15 @@ export const Mascot: React.FC<{
       width={(size * 200) / 240}
       height={size}
       viewBox={RIG_VIEWBOX}
-      style={style}
+      style={
+        lift > 0
+          ? { ...style, transform: `translateY(${(-lift).toFixed(2)}px)` }
+          : style
+      }
       role="img"
       aria-label={`${character} mascot, ${emotion}, ${pose}`}
     >
-      <Char emotion={emotion} rig={rig} blink={blink} />
+      <Char emotion={emotion} rig={rig} blink={blinking} />
     </svg>
   );
 };

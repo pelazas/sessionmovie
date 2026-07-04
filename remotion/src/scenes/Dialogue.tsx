@@ -47,21 +47,44 @@ export const Dialogue: React.FC<{
     extrapolateRight: "clamp",
   });
 
+  // Last line index this speaker delivered at or before the active line.
+  const speakerLineIndex = (speaker: "user" | "claude"): number => {
+    for (let i = activeIndex; i >= 0; i--) {
+      if (scene.lines[i]?.speaker === speaker) return i;
+    }
+    return -1;
+  };
+
+  // A puppet points while its line is on the air, keeps pointing while the
+  // NEXT bubble pops in (the pop steals the eye, hiding the arm release),
+  // and everyone relaxes to idle once the conversation is over — no statue
+  // pointing at nothing through the caption beat.
+  const HOLDOVER = 14;
+  const conversationOver = frame >= usable + 15;
+  const isPointing = (speaker: "user" | "claude"): boolean => {
+    if (conversationOver) return false;
+    const li = speakerLineIndex(speaker);
+    if (li < 0) return false;
+    if (activeSpeaker === speaker) return true;
+    return li === activeIndex - 1 && frame < lineStart(activeIndex) + HOLDOVER;
+  };
+
   const puppet = (speaker: "user" | "claude") => {
-    const speaking = activeSpeaker === speaker;
+    const pointing = isPointing(speaker);
+    const li = speakerLineIndex(speaker);
     const mascot = (
       <Mascot
         character={speaker === "user" ? "user" : "agent"}
         emotion={lastEmotion(speaker)}
-        pose={speaking ? "point" : "idle"}
+        pose={pointing ? "point" : "idle"}
         size={290}
         seed={`dialogue-${speaker}`}
       />
     );
-    // Restart the sequence clock on each spoken line so the "point" spring
-    // re-fires per bubble instead of only once at scene start.
-    return speaking && activeIndex >= 0 ? (
-      <Sequence from={lineStart(activeIndex)} layout="none">
+    // Restart the sequence clock at the speaker's own line so the "point"
+    // spring re-fires per bubble (and stays settled through the holdover).
+    return pointing && li >= 0 ? (
+      <Sequence from={lineStart(li)} layout="none">
         {mascot}
       </Sequence>
     ) : (
@@ -93,6 +116,17 @@ export const Dialogue: React.FC<{
             extrapolateRight: "clamp",
           });
           if (p === 0) return null;
+          // The stack area fits ~4 big bubbles (schema has no cap on lines):
+          // chat-log style, each bubble fades out as its 4th successor lands,
+          // so long dialogues never push bubbles off the top of the frame.
+          const superseded =
+            i + 4 < scene.lines.length
+              ? interpolate(frame, [lineStart(i + 4), lineStart(i + 4) + 10], [1, 0], {
+                  extrapolateLeft: "clamp",
+                  extrapolateRight: "clamp",
+                })
+              : 1;
+          if (superseded === 0) return null;
           const isUser = line.speaker === "user";
           const color = isUser ? theme.blue : theme.purple;
           return (
@@ -101,7 +135,9 @@ export const Dialogue: React.FC<{
               style={{
                 alignSelf: isUser ? "flex-start" : "flex-end",
                 maxWidth: "82%",
-                opacity: p,
+                opacity: p * superseded,
+                maxHeight: superseded < 1 ? `${superseded * 400}px` : undefined,
+                overflow: superseded < 1 ? "hidden" : undefined,
                 transform: `scale(${0.7 + p * 0.3}) translateY(${(1 - p) * 30}px)`,
                 transformOrigin: isUser ? "bottom left" : "bottom right",
               }}

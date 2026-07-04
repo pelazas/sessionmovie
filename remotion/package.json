@@ -1,7 +1,7 @@
 {
   "name": "@sessionmovie/renderer",
   "version": "0.0.1",
-  "description": "Remotion renderer for sessionmovie — the classic genre pack.",
+  "description": "Remotion renderer for sessionmovie \u2014 the classic genre pack.",
   "license": "MIT",
   "private": true,
   "dependencies": {
@@ -21,7 +21,7 @@
   "scripts": {
     "dev": "remotion studio",
     "render": "remotion render src/index.ts Classic ../out/sample.mp4 --props=../fixtures/screenplays/sample.json",
-    "contact-sheet": "remotion still src/index.ts ContactSheet contact-sheet.png --frame=45",
+    "contact-sheet": "remotion still src/index.ts ContactSheet ../out/contact-sheet.png --frame=45",
     "build": "remotion bundle",
     "lint": "eslint src && tsc"
   },
