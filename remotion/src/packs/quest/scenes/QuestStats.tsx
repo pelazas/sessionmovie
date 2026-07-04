@@ -4,6 +4,7 @@ import { cameraDrift } from "../../../effects";
 import type { StatsScene } from "../../../screenplay";
 import { statsSchedule } from "../../../timing";
 import { Caption } from "../../Caption";
+import { useFactTiles } from "../../FactTiles";
 import { QuestClockChip } from "../QuestClockChip";
 import { quest } from "../theme";
 
@@ -34,6 +35,7 @@ export const QuestStats: React.FC<{
 }> = ({ scene, caption, durationInFrames }) => {
   const frame = useCurrentFrame();
   const drift = cameraDrift(frame, "quest-stats", durationInFrames);
+  const factTiles = useFactTiles();
   const { countsStart, achievementsStart, gradeStart } = statsSchedule(scene, durationInFrames);
   const cardIn = pop(frame, 0);
   const { counts } = scene;
@@ -112,6 +114,43 @@ export const QuestStats: React.FC<{
             </div>
           ))}
         </div>
+
+        {/* the ledger — session-fact tiles (feat/session-facts): forged
+            CLI-side, displayed verbatim; no numbers derived here. */}
+        {factTiles.length > 0 ? (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: `repeat(${factTiles.length}, 1fr)`,
+              gap: 26,
+              marginTop: 26,
+            }}
+          >
+            {factTiles.map((tile, i) => {
+              const p = pop(frame, countsStart + 32 + i * 8);
+              return (
+                <div
+                  key={tile.label}
+                  style={{
+                    padding: "22px 24px",
+                    borderRadius: 10,
+                    border: `2px solid ${quest.gold}`,
+                    textAlign: "center",
+                    opacity: p,
+                    transform: `scale(${0.85 + p * 0.15})`,
+                  }}
+                >
+                  <div style={{ color: quest.goldBright, fontSize: 42, fontWeight: 700 }}>
+                    {tile.value}
+                  </div>
+                  <div style={{ color: quest.textDim, fontSize: 24, marginTop: 6 }}>
+                    {tile.label}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
 
         {/* trophies */}
         {scene.achievements.length > 0 ? (

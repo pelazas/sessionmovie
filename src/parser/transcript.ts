@@ -26,11 +26,17 @@ interface RawLine {
   isMeta?: boolean;
   isSidechain?: boolean;
   message?: {
+    id?: string;
     role?: string;
+    model?: string;
     content?: unknown;
+    usage?: Record<string, unknown>;
   };
   toolUseResult?: Record<string, unknown>;
 }
+
+/** Gaps longer than this read as "walked away", not "thinking" (session facts). */
+const IDLE_GAP_SEC = 120;
 
 interface PendingToolUse {
   tool: string;
@@ -166,6 +172,20 @@ export function parseTranscript(jsonl: string): Timeline {
   let firstTimestamp: string | undefined;
   let lastTimestamp: string | undefined;
 
+  // Session facts (docs/v1-storychange.md): usage totals deduped by API
+  // message id (one message spans several content-block lines, each
+  // repeating the same usage), models in first-use order, and rhythm.
+  const usageTotals = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
+  let usageSeen = false;
+  const usageCountedIds = new Set<string>();
+  const models: string[] = [];
+  let prevTsMs: number | undefined;
+  let activeSec = 0;
+  let idleSec = 0;
+  let longestPauseSec = 0;
+  let gapsSeen = false;
+  const toolUseByMinute = new Map<number, number>();
+
   for (const rawLine of jsonl.split("\n")) {
     const trimmed = rawLine.trim();
     if (!trimmed) continue;
@@ -191,6 +211,17 @@ export function parseTranscript(jsonl: string): Timeline {
     if (line.timestamp) {
       firstTimestamp ??= line.timestamp;
       lastTimestamp = line.timestamp;
+      const tsMs = Date.parse(line.timestamp);
+      if (Number.isFinite(tsMs)) {
+        if (prevTsMs !== undefined && tsMs > prevTsMs) {
+          const gapSec = (tsMs - prevTsMs) / 1000;
+          if (gapSec > IDLE_GAP_SEC) idleSec += gapSec;
+          else activeSec += gapSec;
+          if (gapSec > longestPauseSec) longestPauseSec = gapSec;
+          gapsSeen = true;
+        }
+        prevTsMs = tsMs;
+      }
     }
     meta.sessionId ??= line.sessionId;
     meta.gitBranch ??= line.gitBranch;
@@ -223,6 +254,22 @@ export function parseTranscript(jsonl: string): Timeline {
     }
 
     if (type === "assistant") {
+      const model = str(line.message?.model);
+      if (model && !models.includes(model)) models.push(model);
+      const usage = asRecord(line.message?.usage);
+      if (usage) {
+        const messageId = str(line.message?.id);
+        if (!messageId || !usageCountedIds.has(messageId)) {
+          if (messageId) usageCountedIds.add(messageId);
+          const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+          usageTotals.input += num(usage["input_tokens"]);
+          usageTotals.output += num(usage["output_tokens"]);
+          usageTotals.cacheRead += num(usage["cache_read_input_tokens"]);
+          usageTotals.cacheCreation += num(usage["cache_creation_input_tokens"]);
+          usageSeen = true;
+        }
+      }
+
       const content = line.message?.content;
       if (!Array.isArray(content)) continue;
       for (const block of content) {
@@ -237,6 +284,12 @@ export function parseTranscript(jsonl: string): Timeline {
           turnIndex: currentTurn(),
         };
         toolCalls.push(call);
+        if (line.timestamp) {
+          const minute = Math.floor(Date.parse(line.timestamp) / 60_000);
+          if (Number.isFinite(minute)) {
+            toolUseByMinute.set(minute, (toolUseByMinute.get(minute) ?? 0) + 1);
+          }
+        }
         if (id) pendingByToolUseId.set(id, { tool, input, turnIndex: call.turnIndex, call });
       }
       continue;
@@ -299,12 +352,24 @@ export function parseTranscript(jsonl: string): Timeline {
   if (firstTimestamp) meta.startedAt = firstTimestamp;
   if (lastTimestamp) meta.endedAt = lastTimestamp;
 
+  const peakToolCallsPerMinute = Math.max(0, ...toolUseByMinute.values());
+
   return {
     sessionMeta: meta,
     turns,
     toolCalls,
     diffs,
     commands,
+    ...(usageSeen && { usage: usageTotals }),
+    ...(models.length > 0 && { models }),
+    ...(gapsSeen && {
+      rhythm: {
+        activeSec: Math.round(activeSec),
+        idleSec: Math.round(idleSec),
+        longestPauseSec: Math.round(longestPauseSec),
+        peakToolCallsPerMinute,
+      },
+    }),
     totals: {
       turns: turns.length,
       toolCalls: toolCalls.length,

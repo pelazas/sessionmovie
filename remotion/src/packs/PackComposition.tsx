@@ -1,11 +1,16 @@
 import { AbsoluteFill, Series, useCurrentFrame, useVideoConfig } from "remotion";
+import type { FactTile } from "../../../src/facts/types";
 import type { VoiceoverManifest } from "../../../src/voiceover/types";
 import { SceneTimeContext } from "./ClockChip";
+import { FactTilesContext } from "./FactTiles";
 import { sceneLocalCue } from "./voiceoverSync";
 import type { Scene, Screenplay } from "../screenplay";
 import { flash } from "../effects";
 import { sceneCutFrames, sceneFrames } from "../timing";
 import { VoiceoverCueContext, type GenrePack } from "./types";
+
+/** Stable default so a missing sidecar never churns the context value. */
+const EMPTY_TILES: FactTile[] = [];
 
 /**
  * One composition body shared by every pack: audio layer + a Series of
@@ -66,11 +71,18 @@ export const makePackComposition = (pack: GenrePack): React.FC<Screenplay> => {
   // ── end scene-transitions block ────────────────────────────────────────────
 
   const PackComposition: React.FC<
-    Screenplay & { voiceover?: VoiceoverManifest; sceneTimes?: (string | null)[] }
+    Screenplay & {
+      voiceover?: VoiceoverManifest;
+      sceneTimes?: (string | null)[];
+      factTiles?: FactTile[];
+    }
   > = (screenplay) => {
     const { fps } = useVideoConfig();
     return (
       <AbsoluteFill style={{ backgroundColor: pack.background }}>
+        {/* factTiles sidecar (feat/session-facts): pre-formatted stat tiles,
+            consumed by the stats scene via useFactTiles. */}
+        <FactTilesContext.Provider value={screenplay.factTiles ?? EMPTY_TILES}>
         <pack.Audio screenplay={screenplay} />
         <Series>
           {screenplay.scenes.map((scene, i) => {
@@ -93,6 +105,7 @@ export const makePackComposition = (pack: GenrePack): React.FC<Screenplay> => {
         </Series>
         {/* scene-transitions block (feat/effects): overlay above the scenes */}
         <CutTransitions screenplay={screenplay} />
+        </FactTilesContext.Provider>
       </AbsoluteFill>
     );
   };
