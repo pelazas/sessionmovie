@@ -1,3 +1,4 @@
+import { useContext } from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { Mascot } from "../../../characters/Mascot";
 import { EASE_BACK_OUT, EASE_OUT } from "../../../easing";
@@ -6,6 +7,7 @@ import type { DialogueScene, Emotion } from "../../../screenplay";
 import { dialogueSchedule } from "../../../timing";
 import { Caption } from "../../Caption";
 import { ClockChip } from "../../ClockChip";
+import { VoiceoverCueContext } from "../../types";
 import { quest } from "../theme";
 
 /**
@@ -19,8 +21,24 @@ export const QuestDialogue: React.FC<{
   durationInFrames: number;
 }> = ({ scene, caption, durationInFrames }) => {
   const frame = useCurrentFrame();
+  const cue = useContext(VoiceoverCueContext);
   const drift = cameraDrift(frame, "quest-dialogue", durationInFrames);
-  const { usable, lineStart } = dialogueSchedule(scene, durationInFrames);
+
+  // ── text economy: one voice at a time (docs/v1-storychange.md) ────────────
+  // Same lead-in rule as classic: caption + narration play BEFORE the first
+  // bubble; bubbles start after full caption release; the schedule shape is
+  // untouched — it just runs inside the post-lead-in window.
+  const { captionIn: captionInFrame } = dialogueSchedule(scene, durationInFrames);
+  const CAPTION_READ = 40;
+  const RELEASED = 19;
+  const leadInEnd = cue
+    ? cue.endFrame + RELEASED
+    : caption
+      ? captionInFrame + 12 + CAPTION_READ + 16
+      : 0;
+  const shifted = dialogueSchedule(scene, Math.max(1, durationInFrames - leadInEnd));
+  const lineStart = (i: number) => leadInEnd + shifted.lineStart(i);
+  // ── end text economy block ─────────────────────────────────────────────────
 
   let activeIndex = -1;
   for (let i = 0; i < scene.lines.length; i++) {
@@ -39,10 +57,18 @@ export const QuestDialogue: React.FC<{
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const captionIn = interpolate(frame, [usable, usable + 18], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
+  // Caption-only lead-in (narration-driven when a cue exists — see Caption).
+  const captionIn = interpolate(
+    frame,
+    [
+      captionInFrame,
+      captionInFrame + 12,
+      captionInFrame + 12 + CAPTION_READ,
+      captionInFrame + 24 + CAPTION_READ,
+    ],
+    [0, 1, 1, 0],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+  );
 
   // Deterministic fire flicker: two out-of-phase sines, no randomness.
   const flicker = 1 + Math.sin(frame * 0.45) * 0.08 + Math.sin(frame * 0.23 + 2) * 0.05;

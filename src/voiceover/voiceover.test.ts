@@ -84,7 +84,7 @@ test("manifest: captionless scenes get no cue; fit-rule overflow is skipped with
         apiCalled: true,
       }),
       readAlignment: () => null,
-      // dialogue targetSec 10 → caption at 70% → 3s window × 0.9 = 2.7s limit:
+      // dialogue targetSec 10 → caption lead-in at frame 6 → 9.8s window × 0.9 = 8.82s limit:
       // first caption 2s (fits), third 12s (skipped)
       probe: (path) => (path.includes("13") ? 2 : 12),
     },

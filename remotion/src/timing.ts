@@ -139,7 +139,12 @@ export const dialogueSchedule = (
 ): DialogueSchedule => {
   const usable = durationInFrames * 0.7;
   const interval = Math.max(6, (usable - 10) / scene.lines.length);
-  return { usable, interval, lineStart: (i) => 10 + i * interval, captionIn: usable };
+  // captionIn is EARLY (text economy, docs/v1-storychange.md): in dialogue
+  // scenes caption + narration are a LEAD-IN before the first bubble — one
+  // voice at a time, never caption text over a popping bubble. Voiceover cue
+  // scheduling reads this same value, so narration starts here too; the
+  // Dialogue components delay the bubble train past the lead-in.
+  return { usable, interval, lineStart: (i) => 10 + i * interval, captionIn: 6 };
 };
 
 // ── stats ────────────────────────────────────────────────────────────────────
