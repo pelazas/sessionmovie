@@ -21,7 +21,7 @@ import { claudeAvailable, extractJson, runClaude } from "./claude.js";
 import { digestTimeline } from "./digest.js";
 import { writeScreenplay as writeScreenplayHeuristic } from "./heuristic.js";
 
-export const PROMPT_VERSION = "v3";
+export const PROMPT_VERSION = "v4";
 
 const DEFAULT_TARGET_DURATION_SEC = 50;
 const DEFAULT_MAX_ATTEMPTS = 3;
