@@ -2,6 +2,7 @@ import { AbsoluteFill } from "remotion";
 import type { Emotion } from "../screenplay";
 import { theme } from "../theme";
 import { Mascot, type Character, type Pose } from "./Mascot";
+import { EMOTIONS } from "./rig";
 
 /**
  * The acceptance harness from docs/characters.md: every character × emotion
@@ -12,18 +13,14 @@ import { Mascot, type Character, type Pose } from "./Mascot";
 
 export const CONTACT_SHEET_WIDTH = 1800;
 export const CONTACT_SHEET_HEIGHT = 3260;
-/** Frame where entrance springs have landed but cycles are mid-swing. */
+/**
+ * Frame where entrance springs have landed but cycles are mid-swing.
+ * MIRROR: remotion/package.json's `contact-sheet` script passes --frame=45 —
+ * JSON can't import this constant (or carry a comment), so keep them in sync
+ * by hand when changing either.
+ */
 export const CONTACT_SHEET_FRAME = 45;
 
-const EMOTIONS: Emotion[] = [
-  "neutral",
-  "confident",
-  "confused",
-  "panicking",
-  "smug",
-  "defeated",
-  "celebrating",
-];
 const POSES: Pose[] = ["idle", "typing", "point", "cheer", "collapse"];
 const CHARACTERS: Character[] = ["agent", "user"];
 
@@ -47,42 +44,48 @@ export const ContactSheet: React.FC = () => {
         2 characters × 7 emotions × 5 poses · flat theme tokens · frame {CONTACT_SHEET_FRAME}
       </div>
 
-      {/* column headers: the Emotion enum, in schema order */}
-      <div style={{ display: "flex", marginLeft: LABEL_W }}>
+      {/* the sheet: one CSS grid — label column + one column per Emotion,
+          in schema order (EMOTIONS is exhaustiveness-checked in rig.tsx) */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: `${LABEL_W}px repeat(${EMOTIONS.length}, ${CELL_W}px)`,
+          gridTemplateRows: `auto repeat(${CHARACTERS.length * POSES.length}, 265px)`,
+          alignItems: "center",
+        }}
+      >
+        {/* header row */}
+        <div style={{ height: "auto" }} />
         {EMOTIONS.map((e) => (
           <div
             key={e}
             style={{
-              width: CELL_W,
               fontSize: 24,
               color: theme.textDim,
               textAlign: "center",
+              alignSelf: "start",
             }}
           >
             {e}
           </div>
         ))}
-      </div>
 
-      {CHARACTERS.map((character) =>
-        POSES.map((pose) => (
-          <div
-            key={`${character}-${pose}`}
-            style={{ display: "flex", alignItems: "center", height: 265 }}
-          >
-            <div style={{ width: LABEL_W, fontSize: 26 }}>
+        {CHARACTERS.flatMap((character) =>
+          POSES.flatMap((pose) => [
+            <div key={`${character}-${pose}`} style={{ fontSize: 26 }}>
               <span style={{ color: character === "agent" ? theme.purple : theme.blue }}>
                 {character}
               </span>
               <span style={{ color: theme.textDim }}> · {pose}</span>
-            </div>
-            {EMOTIONS.map((emotion) => (
+            </div>,
+            ...EMOTIONS.map((emotion) => (
               <div
-                key={emotion}
+                key={`${character}-${pose}-${emotion}`}
                 style={{
-                  width: CELL_W,
                   display: "flex",
                   justifyContent: "center",
+                  alignItems: "center",
+                  height: "100%",
                   borderLeft: `1px solid ${theme.panelBorder}`,
                 }}
               >
@@ -95,10 +98,10 @@ export const ContactSheet: React.FC = () => {
                   seed={`${character}-${pose}-${emotion}`}
                 />
               </div>
-            ))}
-          </div>
-        )),
-      )}
+            )),
+          ]),
+        )}
+      </div>
 
       {/* the 120px floor: corner-reaction size, must still read */}
       <div
