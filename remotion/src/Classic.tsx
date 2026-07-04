@@ -41,7 +41,9 @@ const SceneRenderer: React.FC<{
   }
 };
 
-export const Classic: React.FC<{ screenplay: Screenplay }> = ({ screenplay }) => {
+// The composition's props ARE the screenplay — so `--props=<screenplay.json>`
+// (the parse CLI's output, unwrapped) is a valid input with no adapter layer.
+export const Classic: React.FC<Screenplay> = (screenplay) => {
   const { fps } = useVideoConfig();
   return (
     <AbsoluteFill style={{ backgroundColor: theme.bg }}>

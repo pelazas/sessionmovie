@@ -18,11 +18,11 @@ export const RemotionRoot: React.FC = () => {
       fps={FPS}
       width={1080}
       height={1920}
-      defaultProps={{ screenplay: sampleScreenplay }}
+      defaultProps={sampleScreenplay}
       // Duration always derives from the screenplay actually being rendered —
       // including one injected via --props — never from the default fixture.
       calculateMetadata={({ props }) => ({
-        durationInFrames: totalFrames(props.screenplay, FPS),
+        durationInFrames: totalFrames(props, FPS),
       })}
     />
   );
