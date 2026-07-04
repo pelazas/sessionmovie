@@ -3,6 +3,9 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
+  "workspaces": [
+    "remotion"
+  ],
   "description": "Turn a Claude Code session transcript into a 45-60s rendered movie.",
   "scripts": {
     "parse": "tsx src/cli/parse.ts",
