@@ -188,3 +188,14 @@ describe("punchUpScreenplay", () => {
     assert.deepEqual(result.screenplay, input);
   });
 });
+
+describe("caption presence is structure", () => {
+  it("flags a deleted caption and an added caption as violations", () => {
+    const mutated = structuredClone(input);
+    delete mutated.scenes[0]!.caption; // scene 0 has one — delete it
+    const idx = mutated.scenes.findIndex((sc) => sc.caption === undefined && sc !== mutated.scenes[0]);
+    if (idx >= 0) mutated.scenes[idx]!.caption = "IT IS BEHIND THE LINTER";
+    const violations = structuralDiff(input, mutated);
+    assert.ok(violations.length > 0, "caption presence drift must be a violation");
+  });
+});
