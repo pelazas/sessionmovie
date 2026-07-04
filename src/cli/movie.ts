@@ -8,6 +8,7 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { parseTranscript } from "../parser/index.js";
 import { writeScreenplay } from "../screenwriter/heuristic.js";
+import { writeScreenplayLLMDetailed } from "../screenwriter/llm.js";
 import { ScreenplaySchema, type Screenplay } from "../screenplay/schema.js";
 import { remotionCliInstalled, runNpx } from "./workspace.js";
 
@@ -26,7 +27,7 @@ function movieDurationSec(screenplay: Screenplay): number {
 
 function usage(): never {
   process.stderr.write(
-    "usage: sessionmovie <transcript.jsonl> [--out movie.mp4] [--keep-screenplay]\n",
+    "usage: sessionmovie <transcript.jsonl> [--out movie.mp4] [--keep-screenplay] [--no-llm]\n",
   );
   process.exit(1);
 }
@@ -40,6 +41,7 @@ const args = process.argv.slice(2);
 let input: string | undefined;
 let out = "movie.mp4";
 let keepScreenplay = false;
+let useLlm = true;
 for (let i = 0; i < args.length; i++) {
   const arg = args[i];
   if (arg === "--out" || arg === "-o") {
@@ -48,6 +50,8 @@ for (let i = 0; i < args.length; i++) {
     out = next;
   } else if (arg === "--keep-screenplay") {
     keepScreenplay = true;
+  } else if (arg === "--no-llm") {
+    useLlm = false;
   } else if (arg && !arg.startsWith("-")) {
     if (input) usage();
     input = arg;
@@ -71,7 +75,19 @@ try {
 }
 
 const timeline = parseTranscript(jsonl);
-const result = writeScreenplay(timeline);
+// LLM screenwriter is the default (real narrative, funny captions); it falls
+// back to the heuristic on its own when `claude` is missing or attempts fail.
+let result;
+if (useLlm) {
+  process.stdout.write("   writing screenplay with claude (~1 min; --no-llm for the fast heuristic)…\n");
+  const detailed = writeScreenplayLLMDetailed(timeline);
+  result = detailed.output;
+  process.stdout.write(
+    `   screenwriter: ${detailed.source}${detailed.attempts ? ` (${detailed.attempts} attempt${detailed.attempts > 1 ? "s" : ""})` : ""}\n`,
+  );
+} else {
+  result = writeScreenplay(timeline);
+}
 
 if ("decline" in result) {
   process.stderr.write(`🎬 no movie: ${result.reason}\n`);
