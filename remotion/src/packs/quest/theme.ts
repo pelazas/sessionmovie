@@ -17,5 +17,7 @@ export const quest = {
   green: "#46a758",
   greenBg: "rgba(70, 167, 88, 0.14)",
   fire: "#ff8c42",
+  /** fire as "r,g,b" for rgba() glows — keep in sync with `fire`. */
+  fireRgb: "255,140,66",
   mono: "'SF Mono', 'Cascadia Code', 'Fira Code', monospace",
 } as const;

@@ -71,12 +71,14 @@ Rules are code, testable: each fixture's golden pins its auto-genre, so a rules 
 
 **Layer 2 — overrides.** `--genre <id>` always wins. Optionally the screenwriter *suggests* a genre during the beat pass (it's the only thing that has read the story) — the suggestion travels as a **sidecar next to the screenplay, never inside it**: the screenplay stays genre-neutral so re-rendering in another genre never re-runs analysis.
 
-## Extraction status (honest)
+## Extraction status
 
-Today there is one hardcoded pack (`classic`) — deliberate, per the "extract at genre #2" guardrail. The seams are ready: one dispatch switch in `Classic.tsx`, all styling via `theme.ts`, audio as a self-contained layer. Building `quest` performs the extraction: `packs/<id>/` + registry, one `<Composition>` per pack in Root, `--genre` in the CLI, and **a shared per-scene timing module** that scenes and audio both read (killing the mirrored constants in `audio/events.ts` — the one real extraction hazard, flagged in-code).
+Done (PR #17): packs live in `remotion/src/packs/<id>/`, register via `registerGenre` (registration is a module **side effect** — consumers must import the `PACKS` value, not re-export it, or bundlers drop it), Root maps one `<Composition>` per pack with per-pack `calculateMetadata`, the CLI resolves `--genre` through `src/genre/compositions.ts`, and `remotion/src/timing.ts` owns every per-scene schedule — scenes, audio cues, and voiceover alignment all read the same functions (the old mirrored constants are gone).
+
+The implemented contract (`remotion/src/packs/types.ts`) is deliberately leaner than the original sketch: `audio` is one `Audio` component (subsuming track/beatGrid/sfx wiring), `theme` is the pack's own token module plus a `background` color on the pack, and `pacing` is deferred until a pack actually needs to clamp differently. types.ts is the source of truth; this page describes it, not the other way around.
 
 ## Planned packs
 
 - **v1:** `classic` (reference). ✅ shipped
-- **Next:** `quest` — the flagship: the session as a monster hunt, the two characters (see characters.md) center stage, failures as bosses. Built second on purpose; the GenrePack extraction happens here. The metaphor is a rendering decision: `action` events = attacks, `showcase(fail)` = the boss lands a hit, `showcase(pass)` = boss defeated, `dialogue` = campfire, `stats` = victory screen with loot.
-- **Then:** `heist`, `nature-doc`, `horror`, `sports-replay` — and community PRs.
+- **`quest`** ✅ shipped (PR #17) — the flagship: the session as a monster hunt, the two characters center stage. `action` = battle log against THE BUG (HP bar included), `showcase(fail)` = the boss lands a hit, `showcase(pass)` = boss defeated, `dialogue` = campfire, `stats` = victory screen.
+- **Then:** `heist`, `nature-doc`, `horror`, `sports-replay` — and community PRs. Copy `packs/quest/` as the template.

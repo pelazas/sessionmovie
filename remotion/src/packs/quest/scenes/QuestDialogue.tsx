@@ -56,7 +56,7 @@ export const QuestDialogue: React.FC<{
           right: "12%",
           height: 500,
           borderRadius: "50%",
-          background: `radial-gradient(ellipse at center bottom, rgba(255,140,66,${0.18 * glow}) 0%, transparent 70%)`,
+          background: `radial-gradient(ellipse at center bottom, rgba(${quest.fireRgb},${0.18 * glow}) 0%, transparent 70%)`,
         }}
       />
 

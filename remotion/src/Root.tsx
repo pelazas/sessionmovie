@@ -16,15 +16,22 @@ const FPS = 30;
 // the JSON import is display data, not a trusted boundary.
 const sampleScreenplay = sampleJson as unknown as Screenplay;
 
+// Built once at module scope: inline makePackComposition(pack) in the JSX would
+// mint a new component identity on every RemotionRoot render (Studio remounts).
+const PACK_COMPOSITIONS = PACKS.map((pack) => ({
+  pack,
+  PackComp: makePackComposition(pack),
+}));
+
 export const RemotionRoot: React.FC = () => {
   return (
     <>
       {/* One composition per registered genre pack (docs/genre-packs.md). */}
-      {PACKS.map((pack) => (
+      {PACK_COMPOSITIONS.map(({ pack, PackComp }) => (
         <Composition
           key={pack.id}
           id={pack.compositionId}
-          component={makePackComposition(pack)}
+          component={PackComp}
           fps={FPS}
           width={1080}
           height={1920}

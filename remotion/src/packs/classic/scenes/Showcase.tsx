@@ -85,14 +85,14 @@ export const Showcase: React.FC<{
     extrapolateRight: "clamp",
   });
 
-  const { verdictStart } = showcaseSchedule(durationInFrames);
+  const { verdictStart, captionIn: captionInAt } = showcaseSchedule(durationInFrames);
   const verdictIn = interpolate(frame, [verdictStart, verdictStart + 14], [0, 1], {
     easing: EASE_BACK_OUT,
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  const captionIn = interpolate(frame, [10, 28], [0, 1], {
+  const captionIn = interpolate(frame, [captionInAt, captionInAt + 18], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -169,7 +169,7 @@ export const Showcase: React.FC<{
 const BAR_WIDTHS = [0.86, 0.62, 0.94, 0.5, 0.74, 0.68, 0.9, 0.56];
 const MAX_BARS = 8;
 
-const AbstractDiff: React.FC<{
+export const AbstractDiff: React.FC<{
   added: number;
   removed: number;
   durationInFrames: number;

@@ -17,6 +17,7 @@ registerGenre(questPack);
 
 export const PACKS = allPacks();
 
-export { getPack, registerGenre } from "./registry";
+// getPack/registerGenre: import from "./registry" directly — a pure re-export here
+// would let bundlers skip this module's registration side effects (see PACKS note).
 export { makePackComposition } from "./PackComposition";
 export type { GenrePack, SceneProps } from "./types";
