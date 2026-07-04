@@ -2,6 +2,7 @@ node_modules/
 dist/
 .claude/worktrees/
 out/
+remotion/public/voiceover-cache/
 *.mp4
 !docs/**/*.mp4
 .DS_Store
