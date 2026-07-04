@@ -1,5 +1,6 @@
 import { ClassicAudio } from "../../audio/ClassicAudio";
 import { theme } from "../../theme";
+import { PERSONAS } from "../../../../src/genre/personas";
 import type { GenrePack } from "../types";
 import { Action } from "./scenes/Action";
 import { Dialogue } from "./scenes/Dialogue";
@@ -39,6 +40,6 @@ export const classicPack: GenrePack = {
   },
   Audio: ClassicAudio,
   background: theme.bg,
-  captionPersona:
-    "deadpan, self-aware, a little judgmental — a nature-documentary narrator who has seen too many coding sessions",
+  // One source of truth for persona voices: src/genre/personas.ts (pure module).
+  captionPersona: PERSONAS.classic,
 };
