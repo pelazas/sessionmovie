@@ -1,10 +1,10 @@
 import {
   AbsoluteFill,
-  Easing,
   interpolate,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import { EASE_OUT } from "../easing";
 import type { TitleScene } from "../screenplay";
 import { theme } from "../theme";
 import { Caption } from "./Caption";
@@ -23,7 +23,7 @@ export const Title: React.FC<{
   const cardFrame = frame - coldOpenFrames;
 
   const panelIn = interpolate(cardFrame, [0, 20], [0, 1], {
-    easing: Easing.bezier(0.16, 1, 0.3, 1),
+    easing: EASE_OUT,
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });

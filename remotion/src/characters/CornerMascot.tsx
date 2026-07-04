@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { Easing, interpolate, random, useCurrentFrame } from "remotion";
+import { interpolate, random, useCurrentFrame } from "remotion";
+import { EASE_BACK_OUT } from "../easing";
 import type { Emotion } from "../screenplay";
 import { theme } from "../theme";
 import { Mascot, type Pose } from "./Mascot";
@@ -66,7 +67,7 @@ export const CornerMascot: React.FC<{
 }> = ({ emotion, pose, size = 150, corner = "bottom-right", confetti = false, seed }) => {
   const frame = useCurrentFrame();
   const pop = interpolate(frame, [0, 12], [0, 1], {
-    easing: Easing.bezier(0.34, 1.56, 0.64, 1),
+    easing: EASE_BACK_OUT,
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
