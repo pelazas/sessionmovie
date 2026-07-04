@@ -1,5 +1,6 @@
 import { AbsoluteFill, Series, useVideoConfig } from "remotion";
 import type { Scene, Screenplay } from "./screenplay";
+import { ClassicAudio } from "./audio/ClassicAudio"; // audio layer (feat/audio)
 import { theme } from "./theme";
 import { Title } from "./scenes/Title";
 import { Dialogue } from "./scenes/Dialogue";
@@ -47,6 +48,10 @@ export const Classic: React.FC<Screenplay> = (screenplay) => {
   const { fps } = useVideoConfig();
   return (
     <AbsoluteFill style={{ backgroundColor: theme.bg }}>
+      {/* ── audio layer (owned by feat/audio) — music bed + SFX cues, all
+          timing derived from the screenplay in src/audio/. ── */}
+      <ClassicAudio screenplay={screenplay} />
+      {/* ── end audio layer ── */}
       <Series>
         {screenplay.scenes.map((scene, i) => {
           const frames = sceneFrames(scene, fps);
