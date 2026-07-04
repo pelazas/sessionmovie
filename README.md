@@ -67,6 +67,7 @@ CLI first, skill as a thin wrapper — so any agent with transcripts is a future
 | [visual-language.md](docs/visual-language.md) | Footage philosophy, the energy kit, characters, the stats card |
 | [audio.md](docs/audio.md) | Music/SFX rules (CC0, beat grids) and the ElevenLabs voiceover design |
 | [characters.md](docs/characters.md) | The two puppet characters — original mascot, SVG rig, emotion faces, tone rule |
+| [storytelling.md](docs/storytelling.md) | Recognition first, dialogue is documentary, persona = tone, one voice at a time |
 | [distribution-and-cost.md](docs/distribution-and-cost.md) | CLI vs. skill, cost model, first-run UX |
 | [security-and-privacy.md](docs/security-and-privacy.md) | Secret redaction — a v1 blocker, not a nice-to-have |
 | [roadmap.md](docs/roadmap.md) | The three-weekend v1 plan and the v1.1 candy |

@@ -2,6 +2,9 @@
 
 Two puppet characters carry the movie's emotion: **the agent** (an original robot mascot) and **the user** (a hoodie-dev avatar). The code artifacts stay in the movie as proof — but the characters are the protagonists.
 
+> Narrative rules moved up a level: see **storytelling.md** for the recognition
+> contract, dialogue-is-documentary, and text economy. The money-shot rule below stands.
+
 ## Tone rule they exist to serve
 
 **One code money-shot per movie; characters everywhere else.** One real diff or red test is proof this happened; three is a lecture. The screenwriter (prompt v2+) weights dialogue and comedy up, caps showcase scenes at 1–2, and keeps diffs to the focus lines. Sports-broadcast structure: game footage carries authenticity, characters carry emotion.
