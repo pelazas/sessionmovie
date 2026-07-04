@@ -14,6 +14,10 @@ import { remotionCliInstalled, runNpx } from "./workspace.js";
 // voiceover integration (feat/voiceover)
 import { buildVoiceoverManifest } from "../voiceover/manifest.js";
 import { ttsConfigFromEnv } from "../voiceover/tts.js";
+// genre auto-pick block (feat/genre-rules, issue #10)
+import { compositionFor } from "../genre/compositions.js";
+import { GENRES, isGenre, pickGenre, signalsFrom, type Genre } from "../genre/rules.js";
+import type { Timeline } from "../parser/types.js";
 
 // Matches the composition (remotion/src/Root.tsx + Classic.tsx): 30fps, each
 // scene rounds targetSec to whole frames. Keep in sync so the printed duration
@@ -30,7 +34,7 @@ function movieDurationSec(screenplay: Screenplay): number {
 
 function usage(): never {
   process.stderr.write(
-    "usage: sessionmovie <transcript.jsonl> [--out movie.mp4] [--keep-screenplay] [--no-llm] [--voiceover] [--refresh-voices]\n",
+    "usage: sessionmovie <transcript.jsonl> [--out movie.mp4] [--genre <id>] [--keep-screenplay] [--no-llm] [--voiceover] [--refresh-voices]\n",
   );
   process.exit(1);
 }
@@ -41,6 +45,39 @@ function fail(message: string): never {
 }
 
 const args = process.argv.slice(2);
+
+// ── genre auto-pick block (feat/genre-rules, issue #10) ─────────────────────
+// --genre <id> always wins (Layer 2, docs/genre-packs.md); otherwise the
+// deterministic rules table picks from the session shape (Layer 1) and the
+// pick is printed so it's explainable. Unshipped genres render as classic.
+// The flag is extracted here, BEFORE the main flag loop, so the loop below
+// stays untouched.
+let genreOverride: Genre | undefined;
+const genreFlagAt = args.indexOf("--genre");
+if (genreFlagAt !== -1) {
+  const id = args[genreFlagAt + 1];
+  if (!id || id.startsWith("-")) usage();
+  if (!isGenre(id)) {
+    fail(`unknown genre '${id}' — known genres: ${GENRES.join(", ")}`);
+  }
+  genreOverride = id;
+  args.splice(genreFlagAt, 2);
+}
+/** Genre + composition for the timeline; prints the one explainable line. */
+function resolveGenreComposition(timeline: Timeline): string {
+  const pick = genreOverride
+    ? { genre: genreOverride, reason: "--genre override, auto-pick skipped" }
+    : pickGenre(signalsFrom(timeline));
+  const { compositionId, shipped } = compositionFor(pick.genre);
+  process.stdout.write(
+    `   genre: ${pick.genre} (${pick.reason})` +
+      (shipped ? "" : ` → rendering classic (${pick.genre} not shipped yet)`) +
+      "\n",
+  );
+  return compositionId;
+}
+// ── end genre auto-pick block ───────────────────────────────────────────────
+
 let input: string | undefined;
 let out = "movie.mp4";
 let keepScreenplay = false;
@@ -86,6 +123,7 @@ try {
 }
 
 const timeline = parseTranscript(jsonl);
+const genreComposition = resolveGenreComposition(timeline); // genre auto-pick block (issue #10)
 // LLM screenwriter is the default (real narrative, funny captions); it falls
 // back to the heuristic on its own when `claude` is missing or attempts fail.
 let result;
@@ -166,7 +204,7 @@ const code = await runNpx([
   "remotion",
   "render",
   "src/index.ts",
-  "Classic",
+  genreComposition, // genre auto-pick block (issue #10) — was hardcoded "Classic"
   outPath,
   `--props=${screenplayPath}`,
 ]);
