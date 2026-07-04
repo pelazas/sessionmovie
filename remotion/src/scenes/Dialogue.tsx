@@ -95,7 +95,7 @@ export const Dialogue: React.FC<{
 
   return (
     <AbsoluteFill style={{ backgroundColor: theme.bg, fontFamily: theme.mono }}>
-      {/* bubble stack — bottom-aligned just above the puppets */}
+      {/* bubble stack — just above the puppets */}
       <div
         style={{
           position: "absolute",
@@ -105,7 +105,10 @@ export const Dialogue: React.FC<{
           bottom: 500,
           display: "flex",
           flexDirection: "column",
-          justifyContent: "flex-end",
+          // Short dialogues bottom-aligned leave ~55% dead space up top;
+          // centering balances them. Long stacks stay bottom-anchored so the
+          // chat-log supersede fade keeps working (issue #13).
+          justifyContent: scene.lines.length <= 3 ? "center" : "flex-end",
           gap: 40,
         }}
       >
