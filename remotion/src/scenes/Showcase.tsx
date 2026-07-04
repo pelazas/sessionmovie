@@ -158,6 +158,74 @@ export const Showcase: React.FC<{
   );
 };
 
+/**
+ * Snippetless diff visualization: red bars collapse out, green bars type in —
+ * the diff's *shape* without its content. Bar counts are proportional to the
+ * real added/removed totals (capped); widths follow a fixed pattern so the
+ * render is deterministic with zero randomness.
+ */
+const BAR_WIDTHS = [0.86, 0.62, 0.94, 0.5, 0.74, 0.68, 0.9, 0.56];
+const MAX_BARS = 8;
+
+const AbstractDiff: React.FC<{
+  added: number;
+  removed: number;
+  durationInFrames: number;
+}> = ({ added, removed, durationInFrames }) => {
+  const frame = useCurrentFrame();
+  const redBars = removed === 0 ? 0 : Math.max(1, Math.min(MAX_BARS, Math.round(removed / 4)));
+  const greenBars = added === 0 ? 0 : Math.max(1, Math.min(MAX_BARS, Math.round(added / 4)));
+  const start = Math.round(durationInFrames * 0.12);
+  const stagger = Math.max(
+    4,
+    Math.min(12, (durationInFrames * 0.5) / Math.max(1, redBars + greenBars)),
+  );
+  const bar = (i: number, kind: "removed" | "added") => {
+    const order = kind === "removed" ? i : redBars + i;
+    const p = interpolate(frame, [start + order * stagger, start + order * stagger + 10], [0, 1], {
+      easing: EASE_OUT,
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+    });
+    // Removed bars shrink away once all green bars have landed.
+    const gone =
+      kind === "removed"
+        ? interpolate(
+            frame,
+            [start + (redBars + greenBars) * stagger + 14, start + (redBars + greenBars) * stagger + 30],
+            [1, 0],
+            { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+          )
+        : 1;
+    if (p === 0 || gone === 0) return null;
+    const width = (BAR_WIDTHS[order % BAR_WIDTHS.length] ?? 0.7) * 100;
+    return (
+      <div
+        key={`${kind}-${i}`}
+        style={{
+          height: 34 * gone,
+          overflow: "hidden",
+          backgroundColor: kind === "removed" ? theme.redBg : theme.greenBg,
+          borderLeft: `6px solid ${kind === "removed" ? theme.red : theme.green}`,
+          width: `${width * p}%`,
+          opacity: p * gone,
+          borderRadius: 6,
+        }}
+      />
+    );
+  };
+  return (
+    <div style={{ padding: "44px 48px", display: "flex", flexDirection: "column", gap: 18 }}>
+      {Array.from({ length: redBars }, (_, i) => bar(i, "removed"))}
+      {Array.from({ length: greenBars }, (_, i) => bar(i, "added"))}
+      <div style={{ display: "flex", gap: 40, marginTop: 26, fontSize: 72, fontWeight: 700 }}>
+        <span style={{ color: theme.green }}>+{added}</span>
+        {removed > 0 ? <span style={{ color: theme.red }}>−{removed}</span> : null}
+      </div>
+    </div>
+  );
+};
+
 const DiffPanel: React.FC<{
   scene: ShowcaseScene;
   artifact: DiffArtifact;
@@ -200,7 +268,15 @@ const DiffPanel: React.FC<{
           <span style={{ color: theme.red }}>−{artifact.removed}</span>
         </div>
       </div>
-      {/* Diff body — empty snippet still renders the tab + counts */}
+      {/* Diff body. No snippet (the schema allows it — LLM screenwriters often
+          omit one) → abstract diff bars instead of 12 seconds of empty panel. */}
+      {lines.length === 0 ? (
+        <AbstractDiff
+          added={artifact.added}
+          removed={artifact.removed}
+          durationInFrames={durationInFrames}
+        />
+      ) : null}
       <div style={{ padding: "36px 0" }}>
         {lines.map((line, i) => {
           const slot = schedule.get(i);
