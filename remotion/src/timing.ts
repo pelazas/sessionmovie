@@ -139,7 +139,50 @@ export const dialogueSchedule = (
 ): DialogueSchedule => {
   const usable = durationInFrames * 0.7;
   const interval = Math.max(6, (usable - 10) / scene.lines.length);
-  return { usable, interval, lineStart: (i) => 10 + i * interval, captionIn: usable };
+  // captionIn is EARLY (text economy, docs/v1-storychange.md): in dialogue
+  // scenes caption + narration are a LEAD-IN before the first bubble — one
+  // voice at a time, never caption text over a popping bubble. Voiceover cue
+  // scheduling reads this same value, so narration starts here too; the
+  // Dialogue components delay the bubble train past the lead-in.
+  return { usable, interval, lineStart: (i) => 10 + i * interval, captionIn: 6 };
+};
+
+/** Caption is fully released this many frames after narration ends (sync
+ * contract; voiceoverSync re-exports this as CAPTION_RELEASE_END). */
+export const CAPTION_RELEASE_END = 15;
+/** Frames between narration end and the first bubble pop: full caption
+ * release plus a small safety margin. */
+export const DIALOGUE_LEAD_RELEASE = CAPTION_RELEASE_END + 4;
+
+/**
+ * One voice at a time (docs/v1-storychange.md): when a dialogue scene has
+ * narration, caption + narration play as a LEAD-IN and the bubble train runs
+ * in the remaining window — same schedule shape, shifted past the lead-in.
+ * Without narration there is no lead-in: bubbles start immediately and a
+ * caption (if any) is a closing beat after the last bubble, fading in at
+ * `usable` (the spec's sanctioned dialogue-caption use).
+ *
+ * The lead-in is clamped to 60% of the scene so a hand-fed over-long cue
+ * degrades to a compressed bubble train instead of no bubbles at all — the
+ * manifest fit gate already caps real dialogue cues well below this.
+ */
+export const dialogueLeadSchedule = (
+  scene: DialogueScene,
+  durationInFrames: number,
+  cueEndFrame: number | null,
+): DialogueSchedule & { leadInEnd: number } => {
+  const leadInEnd =
+    cueEndFrame === null
+      ? 0
+      : Math.min(cueEndFrame + DIALOGUE_LEAD_RELEASE, Math.round(durationInFrames * 0.6));
+  const shifted = dialogueSchedule(scene, Math.max(1, durationInFrames - leadInEnd));
+  return {
+    leadInEnd,
+    usable: leadInEnd + shifted.usable,
+    interval: shifted.interval,
+    lineStart: (i) => leadInEnd + shifted.lineStart(i),
+    captionIn: shifted.captionIn,
+  };
 };
 
 // ── stats ────────────────────────────────────────────────────────────────────

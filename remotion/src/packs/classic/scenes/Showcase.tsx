@@ -7,6 +7,7 @@ import { CornerMascot } from "../../../characters/CornerMascot";
 import type { DiffArtifact, ShowcaseScene, TestRunArtifact } from "../../../screenplay";
 import { theme } from "../../../theme";
 import { Caption } from "../../Caption";
+import { ClockChip } from "../../ClockChip";
 
 const LINE_HEIGHT = 84;
 
@@ -173,6 +174,7 @@ export const Showcase: React.FC<{
           }}
         />
       ) : null}
+      <ClockChip />
       {caption ? <Caption text={caption} opacity={captionIn} /> : null}
     </AbsoluteFill>
   );

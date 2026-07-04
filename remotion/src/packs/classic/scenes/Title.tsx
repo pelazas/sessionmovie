@@ -10,6 +10,7 @@ import { cameraDrift, flash, shake } from "../../../effects";
 import type { TitleScene } from "../../../screenplay";
 import { theme } from "../../../theme";
 import { Caption } from "../../Caption";
+import { ClockChip } from "../../ClockChip";
 
 export const Title: React.FC<{
   scene: TitleScene;
@@ -193,6 +194,7 @@ export const Title: React.FC<{
           </div>
         </div>
       </div>
+      <ClockChip />
       {caption ? <Caption text={caption} opacity={captionIn} /> : null}
     </AbsoluteFill>
   );

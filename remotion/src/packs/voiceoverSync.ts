@@ -11,7 +11,7 @@
  * remotion runtime — safe to import from compositions and node:test alike.
  */
 import type { Scene } from "../screenplay";
-import { captionInFrame, sceneFrames } from "../timing";
+import { CAPTION_RELEASE_END as RELEASE_END, captionInFrame, sceneFrames } from "../timing";
 import type {
   CharacterAlignment,
   SceneVoiceoverCue,
@@ -23,8 +23,10 @@ import type {
 export const CAPTION_IN_FRAMES = 8;
 /** Caption holds this long after narration ends, then fades (frames). */
 export const CAPTION_RELEASE_HOLD = 7;
-/** Fully released this many frames after narration end (docs: ~15). */
-export const CAPTION_RELEASE_END = 15;
+/** Fully released this many frames after narration end (docs: ~15).
+ * Single source: timing.ts — dialogueLeadSchedule derives its bubble-train
+ * release gap from the same constant. */
+export const CAPTION_RELEASE_END = RELEASE_END;
 
 /**
  * Group character-level alignment into word timings: a word spans its first

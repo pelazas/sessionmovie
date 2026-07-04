@@ -4,6 +4,7 @@ import { cameraDrift } from "../../../effects";
 import type { StatsScene } from "../../../screenplay";
 import { statsSchedule } from "../../../timing";
 import { Caption } from "../../Caption";
+import { QuestClockChip } from "../QuestClockChip";
 import { quest } from "../theme";
 
 /**
@@ -167,6 +168,7 @@ export const QuestStats: React.FC<{
           </div>
         ) : null}
       </div>
+      <QuestClockChip />
       {caption ? <Caption text={caption} opacity={captionIn} /> : null}
     </AbsoluteFill>
   );

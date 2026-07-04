@@ -10,6 +10,7 @@ import { statsSchedule } from "../../../timing";
 import type { StatsScene } from "../../../screenplay";
 import { theme } from "../../../theme";
 import { Caption } from "../../Caption";
+import { ClockChip } from "../../ClockChip";
 
 const countUp = (frame: number, start: number, value: number): number =>
   Math.round(
@@ -161,6 +162,7 @@ export const Stats: React.FC<{
           </div>
         ) : null}
       </div>
+      <ClockChip />
       {caption ? <Caption text={caption} opacity={captionIn} /> : null}
     </AbsoluteFill>
   );

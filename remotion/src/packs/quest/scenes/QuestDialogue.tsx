@@ -1,10 +1,13 @@
+import { useContext } from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { Mascot } from "../../../characters/Mascot";
 import { EASE_BACK_OUT, EASE_OUT } from "../../../easing";
 import { cameraDrift } from "../../../effects";
 import type { DialogueScene, Emotion } from "../../../screenplay";
-import { dialogueSchedule } from "../../../timing";
+import { dialogueLeadSchedule } from "../../../timing";
 import { Caption } from "../../Caption";
+import { QuestClockChip } from "../QuestClockChip";
+import { VoiceoverCueContext } from "../../types";
 import { quest } from "../theme";
 
 /**
@@ -18,8 +21,17 @@ export const QuestDialogue: React.FC<{
   durationInFrames: number;
 }> = ({ scene, caption, durationInFrames }) => {
   const frame = useCurrentFrame();
+  const cue = useContext(VoiceoverCueContext);
   const drift = cameraDrift(frame, "quest-dialogue", durationInFrames);
-  const { usable, lineStart } = dialogueSchedule(scene, durationInFrames);
+
+  // One voice at a time (docs/v1-storychange.md): same rule as classic —
+  // narration is a lead-in, cueless captions are a closing beat. The math
+  // lives in timing.ts (dialogueLeadSchedule).
+  const { usable, lineStart } = dialogueLeadSchedule(
+    scene,
+    durationInFrames,
+    cue ? cue.endFrame : null,
+  );
 
   let activeIndex = -1;
   for (let i = 0; i < scene.lines.length; i++) {
@@ -38,6 +50,8 @@ export const QuestDialogue: React.FC<{
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
+  // Closing-beat caption for cueless captions (narration-driven when a cue
+  // exists — see Caption).
   const captionIn = interpolate(frame, [usable, usable + 18], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
@@ -171,6 +185,8 @@ export const QuestDialogue: React.FC<{
       >
         <Mascot character="agent" emotion={lastEmotion("claude")} pose="idle" size={270} seed="quest-fire-agent" />
       </div>
+
+      <QuestClockChip />
 
       {caption ? <Caption text={caption} opacity={captionIn} /> : null}
     </AbsoluteFill>

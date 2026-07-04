@@ -1,12 +1,15 @@
+import { useContext } from "react";
 import { AbsoluteFill, Sequence, interpolate, useCurrentFrame } from "remotion";
 import { EASE_BACK_OUT, EASE_OUT } from "../../../easing";
 import { cameraDrift } from "../../../effects";
-import { dialogueSchedule } from "../../../timing";
+import { dialogueLeadSchedule } from "../../../timing";
 import { Mascot } from "../../../characters/Mascot";
 import type { DialogueScene } from "../../../screenplay";
 import type { Emotion } from "../../../screenplay";
 import { theme } from "../../../theme";
 import { Caption } from "../../Caption";
+import { ClockChip } from "../../ClockChip";
+import { VoiceoverCueContext } from "../../types";
 
 // The characters' main stage: both puppets stand at the bottom (user left/
 // blue, claude right/purple) while speech bubbles pop in above them. The
@@ -18,11 +21,18 @@ export const Dialogue: React.FC<{
   durationInFrames: number;
 }> = ({ scene, caption, durationInFrames }) => {
   const frame = useCurrentFrame();
+  const cue = useContext(VoiceoverCueContext);
   const drift = cameraDrift(frame, "classic-dialogue", durationInFrames);
 
-  // Bubble pacing comes from the shared timing module — voiceover scheduling
-  // reads the same captionIn to align narration with the caption beat.
-  const { usable, lineStart } = dialogueSchedule(scene, durationInFrames);
+  // One voice at a time (docs/v1-storychange.md): with narration, caption +
+  // cue play as a lead-in and the bubble train runs after; without, bubbles
+  // start immediately and a caption is a closing beat after the last bubble.
+  // All the math lives in timing.ts (dialogueLeadSchedule).
+  const { usable, lineStart } = dialogueLeadSchedule(
+    scene,
+    durationInFrames,
+    cue ? cue.endFrame : null,
+  );
 
   // The line currently "on the air" drives the puppets.
   let activeIndex = -1;
@@ -40,6 +50,8 @@ export const Dialogue: React.FC<{
   };
   const activeSpeaker = activeIndex >= 0 ? scene.lines[activeIndex]?.speaker : undefined;
 
+  // Closing-beat caption opacity for cueless captions (with a cue, Caption
+  // runs narration-driven in sync mode and ignores this schedule opacity).
   const captionIn = interpolate(frame, [usable, usable + 18], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
@@ -193,6 +205,8 @@ export const Dialogue: React.FC<{
       >
         {puppet("claude")}
       </div>
+
+      <ClockChip />
 
       {caption ? <Caption text={caption} opacity={captionIn} /> : null}
     </AbsoluteFill>

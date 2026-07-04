@@ -14,6 +14,11 @@ import {
   sceneLocalCue,
   wordsFromAlignment,
 } from "../../remotion/src/packs/voiceoverSync.js";
+import {
+  CAPTION_RELEASE_END,
+  DIALOGUE_LEAD_RELEASE,
+  dialogueLeadSchedule,
+} from "../../remotion/src/timing.js";
 
 const tenth = (i: number) => Math.round(i * 100) / 1000; // exact 0.1 steps, no FP drift
 const alignmentFor = (text: string) => ({
@@ -44,7 +49,7 @@ describe("wordsFromAlignment", () => {
   });
 });
 
-/** A dialogue scene: captionIn = 70% of the scene (timing.ts). */
+/** A dialogue scene: captionIn = 6 — the lead-in beat (timing.ts, text economy). */
 const dialogueScene = (targetSec: number): Screenplay["scenes"][number] => ({
   type: "dialogue",
   lines: [{ speaker: "claude", text: "line", emotion: "neutral" }],
@@ -62,22 +67,24 @@ const cueWith = (durationSec: number, words: VoiceoverCue["words"]): VoiceoverCu
 
 describe("sceneLocalCue", () => {
   it("starts at the scene's caption-in frame; words offset from there", () => {
-    // dialogue 10s @30fps → 300 frames, captionIn = 210
+    // dialogue 10s @30fps → 300 frames, captionIn = 6 (lead-in, text economy)
     const cue = cueWith(2, [
       { word: "hi", startSec: 0, endSec: 0.5 },
       { word: "you", startSec: 0.6, endSec: 1.9 },
     ]);
     const local = sceneLocalCue(cue, dialogueScene(10), 30);
-    assert.equal(local.startFrame, 210);
-    assert.equal(local.endFrame, 270);
-    assert.deepEqual(local.words[0], { text: "hi", startFrame: 210, endFrame: 225 });
-    assert.deepEqual(local.words[1], { text: "you", startFrame: 228, endFrame: 267 });
+    assert.equal(local.startFrame, 6);
+    assert.equal(local.endFrame, 66);
+    assert.deepEqual(local.words[0], { text: "hi", startFrame: 6, endFrame: 21 });
+    assert.deepEqual(local.words[1], { text: "you", startFrame: 24, endFrame: 63 });
   });
 
   it("clamps the start so the cue still finishes inside the scene (mirrors ClassicAudio)", () => {
-    const cue = cueWith(9.5, [{ word: "long", startSec: 0, endSec: 9.5 }]);
+    // 9.9s cue in a 10s scene: latest fit = 300 − 297 = 3, earlier than captionIn 6.
+    const cue = cueWith(9.9, [{ word: "long", startSec: 0, endSec: 9.9 }]);
     const local = sceneLocalCue(cue, dialogueScene(10), 30);
-    assert.equal(local.startFrame, 300 - Math.round(9.5 * 30)); // latest fit, not 210
+    assert.equal(local.startFrame, 300 - Math.round(9.9 * 30)); // latest fit, not 6
+    assert.ok(local.endFrame <= 300); // the cue always finishes inside its scene
   });
 });
 
@@ -117,4 +124,36 @@ describe("captionRenderState", () => {
     assert.ok(releasing > 0 && releasing < 1);
     assert.equal(captionRenderState(cue, 176, 1).opacity, 0);
   });
+});
+
+describe("dialogueLeadSchedule (one voice at a time)", () => {
+  const lines = { type: "dialogue" as const, lines: [
+    { speaker: "claude" as const, text: "a", emotion: "neutral" as const },
+    { speaker: "user" as const, text: "b", emotion: "neutral" as const },
+  ], targetSec: 10 };
+
+  it("no cue: bubbles start immediately, caption beat at 70% (closing beat)", () => {
+    const s = dialogueLeadSchedule(lines, 300, null);
+    assert.equal(s.leadInEnd, 0);
+    assert.equal(s.lineStart(0), 10);
+    assert.equal(s.usable, 210);
+  });
+
+  it("with a cue: bubble train waits for full caption release after narration", () => {
+    const s = dialogueLeadSchedule(lines, 300, 138);
+    assert.equal(s.leadInEnd, 138 + DIALOGUE_LEAD_RELEASE);
+    assert.equal(s.lineStart(0), s.leadInEnd + 10);
+  });
+
+  it("an over-long cue clamps the lead-in to 60% — bubbles always render", () => {
+    // fit-gate-illegal cue fed by hand: end at frame 289 of 300
+    const s = dialogueLeadSchedule(lines, 300, 289);
+    assert.equal(s.leadInEnd, 180);
+    assert.ok(s.lineStart(1) < 300 - 12, "last bubble fully pops inside the scene");
+  });
+
+  it("release gap derives from the caption release constant", () => {
+    assert.equal(DIALOGUE_LEAD_RELEASE, CAPTION_RELEASE_END + 4);
+  });
+
 });

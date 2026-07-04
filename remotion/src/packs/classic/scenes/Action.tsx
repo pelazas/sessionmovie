@@ -12,6 +12,7 @@ import { CornerMascot } from "../../../characters/CornerMascot";
 import type { ActionScene, ToolEvent } from "../../../screenplay";
 import { theme } from "../../../theme";
 import { Caption } from "../../Caption";
+import { ClockChip } from "../../ClockChip";
 
 // Category palette covering the tools real sessions are made of; ok/fail
 // status wins over category so the red/green beats always read.
@@ -177,6 +178,7 @@ export const Action: React.FC<{
         emotion={recentFailFrames >= 0 && frame - recentFailFrames < 55 ? "panicking" : "neutral"}
         seed="action-corner"
       />
+      <ClockChip />
       {caption ? <Caption text={caption} opacity={captionIn} /> : null}
     </AbsoluteFill>
   );
