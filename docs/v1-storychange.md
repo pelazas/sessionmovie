@@ -51,6 +51,19 @@ Time-of-day is one of the strongest "that's when" cues for a day you lived. "07:
 - The screenwriter is encouraged to carry time-of-day into captions where it helps.
 - The packs render a small **clock chip** per scene (from the digest's turn timestamps) so the day visibly progresses even when no caption mentions it.
 
+## Session facts: real numbers are anchors too
+
+The transcript carries hard data the movie should surface — numbers are the cheapest you-were-there anchors and the most shareable stats:
+
+- **tokens** (per-message `usage`): totals, cache-read vs fresh ratio → "the cache saved you $X"
+- **model(s)** used, and switches mid-session
+- **estimated spend**: tokens × a per-model pricing table (data file, easy to update) → and the fun correlations: cost per line shipped, cost per commit, tokens per bug fixed
+- **git activity** parsed from bash commands: commits, pushes, PRs opened/merged
+- **subagents spawned** (sidechain count), tests run vs failed
+- **rhythm**: active vs idle gaps, longest pause, peak tool-calls-per-minute
+
+Plumbing (IR stays frozen): the parser extracts a `SessionFacts` object → it rides the renderer-side **sidecar** (like the voiceover manifest) → the stats scene renders 2–3 extra fact tiles picked by deterministic interestingness rules → the same facts go into the **digest header** so the screenwriter can use them in captions and achievements. Estimated costs are labeled *estimated*; for subscription users the framing is "API-equivalent value".
+
 ## Text economy: one voice at a time
 
 Three text channels exist — dialogue bubbles, the caption, and narration. **A viewer should never have to read two of them at once.** Rules:
