@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install (root + remotion workspace)
+        run: npm install
+
+      - name: Typecheck pipeline
+        run: npm run typecheck
+
+      - name: Typecheck remotion
+        run: npx tsc --noEmit
+        working-directory: remotion
+
+      - name: Validate screenplay fixtures
+        run: |
+          shopt -s nullglob
+          files=(fixtures/screenplays/*.json)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "no screenplay fixtures found" >&2
+            exit 1
+          fi
+          for f in "${files[@]}"; do
+            npm run --silent validate -- "$f"
+          done
+
+      - name: Golden tests
+        run: npm test
+
+      - name: Fixture corpus leak scan
+        run: |
+          set -e
+          ! grep -rE 'AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{30,}|sk-[A-Za-z0-9_-]{20,}|xox[bpars]-[A-Za-z0-9]|AIza[0-9A-Za-z_-]{35}|-----BEGIN|/Users/' fixtures/raw/
+          echo "corpus clean"
