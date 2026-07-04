@@ -38,7 +38,7 @@ The Screenwriter does judgment work only:
 Two-pass design:
 
 1. **Beat pass (expensive, genre-neutral):** analysis → screenplay. Cached per session.
-2. **Punch-up pass (cheap, genre-specific):** rewrites captions/dialogue in the genre's voice using the pack's `captionPersona`. Re-rendering the same session in a new genre re-runs only this pass.
+2. **Punch-up pass (cheap, genre-specific):** rewrites captions (plus achievement titles and the grade) in the genre's voice using the pack's `captionPersona`. Dialogue text is documentary and frozen (docs/v1-storychange.md); caption anchors survive verbatim. Re-rendering the same session in a new genre re-runs only this pass.
 
 Output is zod-validated with a repair loop — the model retries on schema mismatch. Inside the Claude Code skill, Claude in-session *is* the Screenwriter (zero marginal cost); the CLI can alternatively call the API.
 
