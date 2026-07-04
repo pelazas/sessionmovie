@@ -23,6 +23,8 @@ import { punchUpScreenplay } from "../screenwriter/punchup.js";
 import { quantizeToBeats } from "../quantize.js";
 import { voiceForGenre } from "../voiceover/manifest.js";
 import { GENRES, isGenre, pickGenre, signalsFrom, type Genre } from "../genre/rules.js";
+import { buildSessionFacts, pickFactTiles } from "../facts/facts.js";
+import { sceneTimesFor } from "../facts/sceneTimes.js";
 import type { Timeline } from "../parser/types.js";
 
 // Matches the composition (remotion/src/Root.tsx + Classic.tsx): 30fps, each
@@ -219,6 +221,24 @@ if (voiceover) {
   }
 }
 // ── end voiceover integration block ─────────────────────────────────────────
+
+// ── session-facts sidecar block (feat/session-facts) ────────────────────────
+// SessionFacts → ≤3 pre-formatted fact tiles + per-scene clock times, riding
+// the composition input props next to the voiceover manifest. The frozen IR
+// is untouched; the renderer displays these verbatim and never derives a
+// number (docs/v1-storychange.md "Session facts").
+{
+  const facts = buildSessionFacts(timeline);
+  const factTiles = pickFactTiles(facts);
+  const sceneTimes = sceneTimesFor(screenplay, timeline);
+  renderProps = { ...renderProps, sceneTimes, ...(factTiles.length > 0 && { factTiles }) };
+  if (factTiles.length > 0) {
+    process.stdout.write(
+      `   facts: ${factTiles.map((t) => `${t.value} ${t.label}`).join(" · ")}\n`,
+    );
+  }
+}
+// ── end session-facts sidecar block ─────────────────────────────────────────
 
 if (!remotionCliInstalled()) {
   fail("Remotion is not installed — run `npm install`, then `sessionmovie doctor` to verify setup");

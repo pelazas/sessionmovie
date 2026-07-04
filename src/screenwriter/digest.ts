@@ -14,6 +14,8 @@
  * digest fits the character cap; as a last resort omit middle turns (the first
  * and final turns carry the setup and the resolution) and hard-truncate.
  */
+import { buildSessionFacts, factsDigestLine } from "../facts/facts.js";
+import { formatClock } from "../facts/time.js";
 import type { CommandRun, FileDiff, Timeline, ToolCall, Turn } from "../parser/types.js";
 
 export const MAX_DIGEST_CHARS = 30_000;
@@ -45,9 +47,10 @@ function humanDuration(totalSec: number): string {
 }
 
 function timeOfDay(timestamp: string | undefined): string {
-  if (!timestamp) return "";
-  const match = /T(\d{2}:\d{2})/.exec(timestamp);
-  return match?.[1] ? ` — ${match[1]}` : "";
+  // LOCAL clock (src/facts/time.ts) — captions must agree with the clock
+  // chips; the raw ISO timestamps are UTC, which nobody lived their day in.
+  const clock = formatClock(timestamp);
+  return clock ? ` — ${clock}` : "";
 }
 
 function header(timeline: Timeline): string {
@@ -61,6 +64,11 @@ function header(timeline: Timeline): string {
       `(+${totals.added}/−${totals.removed}) | commands: ${totals.commands} ` +
       `(${totals.failedCommands} failed)`,
   );
+  // Session facts (docs/v1-storychange.md): real numbers are anchors — the
+  // screenwriter can put them in captions and achievements. One line, only
+  // when the transcript carried facts.
+  const facts = factsDigestLine(buildSessionFacts(timeline));
+  if (facts) lines.push(facts);
   return lines.join("\n");
 }
 

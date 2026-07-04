@@ -11,6 +11,7 @@ import type { StatsScene } from "../../../screenplay";
 import { theme } from "../../../theme";
 import { Caption } from "../../Caption";
 import { ClockChip } from "../../ClockChip";
+import { useFactTiles } from "../../FactTiles";
 
 const countUp = (frame: number, start: number, value: number): number =>
   Math.round(
@@ -35,6 +36,7 @@ export const Stats: React.FC<{
 }> = ({ scene, caption, durationInFrames }) => {
   const frame = useCurrentFrame();
   const drift = cameraDrift(frame, "classic-stats", durationInFrames);
+  const factTiles = useFactTiles();
 
   const cardIn = pop(frame, 0);
   // Beat anchors come from the shared timing module (voiceover aligns to
@@ -118,6 +120,43 @@ export const Stats: React.FC<{
             </div>
           ))}
         </div>
+        {/* Session-fact tiles (feat/session-facts): pre-formatted CLI-side,
+            displayed verbatim — the renderer never derives a number. */}
+        {factTiles.length > 0 ? (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: `repeat(${factTiles.length}, 1fr)`,
+              gap: 28,
+              marginBottom: 56,
+            }}
+          >
+            {factTiles.map((tile, i) => {
+              const p = pop(frame, countsStart + 32 + i * 8);
+              return (
+                <div
+                  key={tile.label}
+                  style={{
+                    backgroundColor: theme.bg,
+                    border: `2px solid ${theme.yellow}`,
+                    borderRadius: 18,
+                    padding: "26px 20px",
+                    textAlign: "center",
+                    opacity: p,
+                    transform: `scale(${0.85 + p * 0.15})`,
+                  }}
+                >
+                  <div style={{ color: theme.yellow, fontSize: 54, fontWeight: 700 }}>
+                    {tile.value}
+                  </div>
+                  <div style={{ color: theme.textDim, fontSize: 24, marginTop: 8 }}>
+                    {tile.label}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
         {/* Achievements */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 20, justifyContent: "center" }}>
           {scene.achievements.map((a, i) => {

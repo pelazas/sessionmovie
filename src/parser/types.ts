@@ -49,6 +49,29 @@ export interface Timeline {
   toolCalls: ToolCall[];
   diffs: FileDiff[];
   commands: CommandRun[];
+  /**
+   * Token totals from per-message `usage`, deduped by API message id — the
+   * transcript repeats the same usage on every content-block line of one
+   * message. Absent when the transcript carries no usage (older versions).
+   */
+  usage?: {
+    input: number;
+    output: number;
+    cacheRead: number;
+    cacheCreation: number;
+  };
+  /** Distinct model ids in first-use order; absent when none seen. */
+  models?: string[];
+  /** Session rhythm from event timestamps; absent without timestamps. */
+  rhythm?: {
+    /** Sum of gaps ≤ the idle threshold (120s). */
+    activeSec: number;
+    /** Sum of gaps above the idle threshold. */
+    idleSec: number;
+    longestPauseSec: number;
+    /** Busiest minute, counted in tool_use blocks. */
+    peakToolCallsPerMinute: number;
+  };
   totals: {
     turns: number;
     toolCalls: number;
