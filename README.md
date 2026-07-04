@@ -65,6 +65,7 @@ CLI first, skill as a thin wrapper — so any agent with transcripts is a future
 | [screenplay-format.md](docs/screenplay-format.md) | The genre-neutral JSON IR — the project's load-bearing contract |
 | [genre-packs.md](docs/genre-packs.md) | The GenrePack interface and how to write one |
 | [visual-language.md](docs/visual-language.md) | Footage philosophy, the energy kit, characters, the stats card |
+| [audio.md](docs/audio.md) | Music/SFX rules (CC0, beat grids) and the ElevenLabs voiceover design |
 | [distribution-and-cost.md](docs/distribution-and-cost.md) | CLI vs. skill, cost model, first-run UX |
 | [security-and-privacy.md](docs/security-and-privacy.md) | Secret redaction — a v1 blocker, not a nice-to-have |
 | [roadmap.md](docs/roadmap.md) | The three-weekend v1 plan and the v1.1 candy |

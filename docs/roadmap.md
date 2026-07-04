@@ -40,7 +40,7 @@ Each item is a feature launch = a new movie, made by the tool:
 - **Other agents' transcripts** — Cursor, Windsurf, Claude Agent SDK sessions: new parsers, same pipeline.
 - **"Wrapped for your coding agent"** — monthly recap movie (lines shipped, bugs fixed, longest session, achievements) from many transcripts.
 - **Real-pixel inserts** — Playwright screenshots / rendered images found in transcripts as real frames.
-- **Voiceover** — ElevenLabs narration per genre persona (~$0.10–0.30/min).
+- **Voiceover** — ElevenLabs narration in the genre's persona voice; opt-in, user's own API key, content-addressed TTS cache, requires the schema v2 `narration` field. Fully designed in [audio.md](audio.md) — build order is documented there; prototype narrates captions with no schema change.
 - **Shadow-git capture mode** — a Stop-hook snapshotter for bash-driven file changes the transcript can't see (routes through redaction like everything else).
 
 ## Non-goals (v1 era)

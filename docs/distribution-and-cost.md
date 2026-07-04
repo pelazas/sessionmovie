@@ -36,7 +36,7 @@ The demo is self-referential in the best way: **"Claude, make a movie of what yo
 | Screenwriter | ~$0.10–0.30 (Sonnet on a 20–80k-token digest) | **$0 marginal** (user's existing plan) |
 | Remotion render (60s, 1080p) | ~$0.02–0.05 on Remotion Lambda | **$0** (local CPU, 2–10 min) |
 
-Two structural reasons it's this cheap: the model never reads the raw transcript (digest only, judgment only), and rendering is deterministic code-driven video — no generative-video costs, ever. Optional later: ElevenLabs voiceover at ~$0.10–0.30/min. v1 is captions + music.
+Two structural reasons it's this cheap: the model never reads the raw transcript (digest only, judgment only), and rendering is deterministic code-driven video — no generative-video costs, ever. Optional later: ElevenLabs voiceover at ~$0.10–0.30/min — the full design (pipeline placement, TTS caching, schema v2, voice ethics) lives in [audio.md](audio.md). v1 is captions + music.
 
 **End-to-end time per movie:** digest + screenplay ~1–2 min, local render ~2–10 min depending on machine. Under 10 minutes total; ~1 min if Remotion Lambda is added later.
 
