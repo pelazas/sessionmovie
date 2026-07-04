@@ -13,6 +13,12 @@
  */
 import { ScreenplaySchema, type Screenplay } from "../screenplay/schema.js";
 import { PERSONAS } from "../genre/personas.js";
+
+// Compile-time: PERSONAS has no keys beyond Genre (missing keys are caught by
+// the Record<Genre, string> annotation at the use site).
+type _NoExtraPersonas = Exclude<keyof typeof PERSONAS, import("../genre/rules.js").Genre> extends never ? true : never;
+const _personasExact: _NoExtraPersonas = true;
+void _personasExact;
 import type { Genre } from "../genre/rules.js";
 import { claudeAvailable, extractJson, runClaude } from "./claude.js";
 
@@ -59,7 +65,14 @@ function structuralFingerprint(screenplay: Screenplay): unknown {
     sessionMeta: screenplay.sessionMeta,
     targetDurationSec: screenplay.targetDurationSec,
     scenes: screenplay.scenes.map((scene) => {
-      const base = { type: scene.type, targetSec: scene.targetSec, caption: "" };
+      // caption text is rewritable; caption PRESENCE is not — the beat pass
+      // choosing silence (or a caption) is structure, same as hasGrade below.
+      const base = {
+        type: scene.type,
+        targetSec: scene.targetSec,
+        caption: "",
+        hasCaption: scene.caption !== undefined,
+      };
       switch (scene.type) {
         case "title":
           return { ...base, task: scene.task, coldOpen: scene.coldOpen ?? null };
