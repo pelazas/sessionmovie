@@ -140,9 +140,13 @@ describe("genre → composition contract table", () => {
     assert.deepEqual(compositionFor("classic"), { compositionId: "Classic", shipped: true });
   });
 
+  it("shipped genres resolve to their own composition", () => {
+    assert.deepEqual(compositionFor("quest"), { compositionId: "Quest", shipped: true });
+  });
+
   it("unshipped genres fall through to Classic, flagged", () => {
     for (const genre of GENRES) {
-      if (genre === "classic") continue;
+      if (genre in GENRE_COMPOSITIONS) continue; // shipped packs covered above
       assert.deepEqual(compositionFor(genre), { compositionId: "Classic", shipped: false });
     }
   });
