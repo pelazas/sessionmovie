@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { AbsoluteFill, Easing, Sequence, interpolate, useCurrentFrame } from "remotion";
 import { EASE_BACK_OUT, EASE_OUT } from "../../../easing";
+import { showcaseSchedule } from "../../../timing";
 import { CornerMascot } from "../../../characters/CornerMascot";
 import type { DiffArtifact, ShowcaseScene, TestRunArtifact } from "../../../screenplay";
 import { theme } from "../../../theme";
@@ -41,8 +42,9 @@ interface LineSchedule {
  * types faster instead of overrunning the scene.
  */
 const buildSchedule = (lines: DiffLine[], durationInFrames: number) => {
-  const collapseStart = Math.round(durationInFrames * 0.12);
-  const verdictStart = Math.round(durationInFrames * 0.78);
+  // collapse/verdict anchors come from the shared timing module (audio reads
+  // the same verdictStart for its fail/pass SFX).
+  const { collapseStart, verdictStart } = showcaseSchedule(durationInFrames);
 
   const removed = lines.map((l, i) => (l.kind === "removed" ? i : -1)).filter((i) => i >= 0);
   const added = lines.map((l, i) => (l.kind === "added" ? i : -1)).filter((i) => i >= 0);
@@ -83,7 +85,7 @@ export const Showcase: React.FC<{
     extrapolateRight: "clamp",
   });
 
-  const verdictStart = Math.round(durationInFrames * 0.78);
+  const { verdictStart } = showcaseSchedule(durationInFrames);
   const verdictIn = interpolate(frame, [verdictStart, verdictStart + 14], [0, 1], {
     easing: EASE_BACK_OUT,
     extrapolateLeft: "clamp",
@@ -356,12 +358,10 @@ const TestRunPanel: React.FC<{
   const color = failed ? theme.red : theme.green;
 
   // Command types in over the first quarter; the exit badge slams at 45%.
-  const typeStart = 12;
-  const typeEnd = Math.max(typeStart + 8, durationInFrames * 0.25);
+  const { typeStart, typeEnd, badgeStart } = showcaseSchedule(durationInFrames).testRun;
   const chars = Math.floor(
     Math.max(0, frame - typeStart) * (artifact.command.length / (typeEnd - typeStart)),
   );
-  const badgeStart = Math.round(durationInFrames * 0.45);
   const badgeIn = interpolate(frame, [badgeStart, badgeStart + 12], [0, 1], {
     easing: EASE_BACK_OUT,
     extrapolateLeft: "clamp",

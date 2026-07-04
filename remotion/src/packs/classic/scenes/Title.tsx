@@ -5,6 +5,7 @@ import {
   useVideoConfig,
 } from "remotion";
 import { EASE_OUT } from "../../../easing";
+import { titleSchedule } from "../../../timing";
 import type { TitleScene } from "../../../screenplay";
 import { theme } from "../../../theme";
 import { Caption } from "../../Caption";
@@ -18,8 +19,12 @@ export const Title: React.FC<{
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // Cold open: the most dramatic moment flashes before the title card.
-  const coldOpenFrames = scene.coldOpen ? Math.round(durationInFrames * 0.22) : 0;
+  // Schedule (cold open, typing speed) comes from the shared timing module —
+  // the audio layer reads the same numbers for its keystroke SFX.
+  const { coldOpenFrames, typingStart, charsPerFrame, typingEnd } = titleSchedule(
+    scene,
+    durationInFrames,
+  );
   const cardFrame = frame - coldOpenFrames;
 
   const panelIn = interpolate(cardFrame, [0, 20], [0, 1], {
@@ -28,19 +33,9 @@ export const Title: React.FC<{
     extrapolateRight: "clamp",
   });
 
-  // The prompt types itself out — speed fits the scene budget: typing always
-  // finishes by ~65% of the card's frames, however long the task is.
-  const typingStart = 15;
-  const cardFrames = durationInFrames - coldOpenFrames;
-  const charsPerFrame = Math.max(
-    0.9,
-    scene.task.length / Math.max(10, cardFrames * 0.65 - typingStart),
-  );
   const typedChars = Math.max(0, Math.floor((cardFrame - typingStart) * charsPerFrame));
   const typed = scene.task.slice(0, typedChars);
   const cursorOn = Math.floor(frame / (fps / 2)) % 2 === 0;
-
-  const typingEnd = typingStart + scene.task.length / charsPerFrame;
   const captionIn = interpolate(cardFrame, [typingEnd + 5, typingEnd + 20], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
