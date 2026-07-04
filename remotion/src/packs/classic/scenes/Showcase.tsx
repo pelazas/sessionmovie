@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { AbsoluteFill, Easing, Sequence, interpolate, useCurrentFrame } from "remotion";
 import { EASE_BACK_OUT, EASE_OUT } from "../../../easing";
 import { showcaseSchedule } from "../../../timing";
+import { flash, freezeSlam, shake } from "../../../effects";
 import { CornerMascot } from "../../../characters/CornerMascot";
 import type { DiffArtifact, ShowcaseScene, TestRunArtifact } from "../../../screenplay";
 import { theme } from "../../../theme";
@@ -97,6 +98,10 @@ export const Showcase: React.FC<{
     extrapolateRight: "clamp",
   });
 
+  // feat/effects: the fail verdict physically HITS — impact shake + red flash.
+  const hit = scene.verdict === "fail" ? shake(frame, verdictStart, 13) : { x: 0, y: 0 };
+  const hitFlash = scene.verdict === "fail" ? flash(frame, verdictStart, 7) : 0;
+
   return (
     <AbsoluteFill
       style={{
@@ -104,6 +109,7 @@ export const Showcase: React.FC<{
         fontFamily: theme.mono,
         justifyContent: "center",
         padding: 50,
+        transform: `translate(${hit.x}px, ${hit.y}px)`,
       }}
     >
       <div
@@ -155,6 +161,17 @@ export const Showcase: React.FC<{
           <CornerMascot pose="point" emotion="smug" corner="bottom-left" seed="showcase-reveal" />
         )}
       </Sequence>
+      {hitFlash > 0 ? (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundColor: theme.red,
+            opacity: hitFlash * 0.28,
+            pointerEvents: "none",
+          }}
+        />
+      ) : null}
       {caption ? <Caption text={caption} opacity={captionIn} /> : null}
     </AbsoluteFill>
   );
@@ -233,7 +250,7 @@ const DiffPanel: React.FC<{
   artifact: DiffArtifact;
   durationInFrames: number;
 }> = ({ scene, artifact, durationInFrames }) => {
-  const frame = useCurrentFrame();
+  const realFrame = useCurrentFrame();
   const lines = useMemo(() => parseSnippet(artifact.snippet), [artifact.snippet]);
   const { schedule, collapseDur } = useMemo(
     () => buildSchedule(lines, durationInFrames),
@@ -241,6 +258,24 @@ const DiffPanel: React.FC<{
   );
   const focused = (i: number) =>
     scene.focus !== undefined && i >= scene.focus.start && i <= scene.focus.end;
+
+  // feat/effects: the anime beat — when the first focused line finishes
+  // typing, TIME FREEZES and the line slams larger; then time resumes where
+  // it left off (freezeSlam inserts the hold). Line animation runs on the
+  // effective frame; the outer verdict/caption stay on the real clock.
+  const focusSlamAt = useMemo(() => {
+    if (scene.focus === undefined) return Number.POSITIVE_INFINITY;
+    for (let i = 0; i < lines.length; i++) {
+      const slot = schedule.get(i);
+      if (focused(i) && slot?.typeStart !== undefined) {
+        return slot.typeStart + (slot.typeDur ?? 0);
+      }
+    }
+    return Number.POSITIVE_INFINITY;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lines, schedule, scene.focus]);
+  const slam = freezeSlam(realFrame, focusSlamAt);
+  const frame = slam.effectiveFrame;
 
   return (
     <>
@@ -313,9 +348,17 @@ const DiffPanel: React.FC<{
             const chars = Math.floor((frame - slot.typeStart) * (slot.charsPerFrame ?? 1));
             const typed = line.text.slice(0, chars);
             const stillTyping = chars < line.text.length;
+            const rowScale = focused(i) ? slam.scale : 1;
             return (
-              <DiffRow
+              <div
                 key={i}
+                style={
+                  rowScale !== 1
+                    ? { transform: `scale(${rowScale})`, transformOrigin: "left center" }
+                    : undefined
+                }
+              >
+              <DiffRow
                 sign="+"
                 color={theme.green}
                 bg={focused(i) ? "rgba(210, 153, 34, 0.12)" : theme.greenBg}
@@ -326,6 +369,7 @@ const DiffPanel: React.FC<{
                 shiftX={0}
                 focus={focused(i)}
               />
+              </div>
             );
           }
           if (line.kind === "context") {

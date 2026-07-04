@@ -6,6 +6,7 @@ import {
 } from "remotion";
 import { EASE_OUT } from "../../../easing";
 import { titleSchedule } from "../../../timing";
+import { flash, shake } from "../../../effects";
 import type { TitleScene } from "../../../screenplay";
 import { theme } from "../../../theme";
 import { Caption } from "../../Caption";
@@ -42,10 +43,15 @@ export const Title: React.FC<{
   });
 
   if (scene.coldOpen && frame < coldOpenFrames) {
+    // feat/effects: the cold open is a PICTURE — the climax as a red terminal
+    // frame mid-catastrophe (impact shake + red flash on entry), then the
+    // smash-cut to the title card.
     const flashIn = interpolate(frame, [0, 6], [0, 1], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
     });
+    const jolt = shake(frame, 0, 10);
+    const redWash = flash(frame, 0, 10);
     return (
       <AbsoluteFill
         style={{
@@ -53,25 +59,66 @@ export const Title: React.FC<{
           justifyContent: "center",
           alignItems: "center",
           fontFamily: theme.mono,
-          padding: 90,
+          padding: 70,
+          transform: `translate(${jolt.x}px, ${jolt.y}px)`,
         }}
       >
         <div
           style={{
-            color: theme.red,
-            fontSize: 72,
-            fontWeight: 700,
-            textAlign: "center",
-            lineHeight: 1.3,
+            width: "100%",
+            backgroundColor: theme.panel,
+            border: `3px solid ${theme.red}`,
+            borderRadius: 20,
+            overflow: "hidden",
             opacity: flashIn,
-            transform: `scale(${0.92 + flashIn * 0.08})`,
+            transform: `scale(${0.94 + flashIn * 0.06})`,
           }}
         >
-          {scene.coldOpen.description}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 16,
+              padding: "22px 32px",
+              borderBottom: `2px solid ${theme.panelBorder}`,
+            }}
+          >
+            {[theme.red, theme.yellow, theme.green].map((c) => (
+              <div key={c} style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: c }} />
+            ))}
+            <span style={{ color: theme.red, fontSize: 30, marginLeft: 14 }}>terminal — the bad moment</span>
+          </div>
+          <div style={{ padding: 44, backgroundColor: theme.redBg }}>
+            {[0.4, 0.7, 0.55].map((w, i) => (
+              <div
+                key={i}
+                style={{
+                  height: 20,
+                  width: `${w * 100}%`,
+                  borderRadius: 6,
+                  backgroundColor: theme.red,
+                  opacity: 0.35,
+                  marginBottom: 18,
+                }}
+              />
+            ))}
+            <div style={{ color: theme.red, fontSize: 62, fontWeight: 700, lineHeight: 1.25 }}>
+              ✗ {scene.coldOpen.description}
+            </div>
+          </div>
         </div>
-        <div style={{ color: theme.textDim, fontSize: 36, marginTop: 48, opacity: flashIn }}>
+        <div style={{ color: theme.textDim, fontSize: 36, marginTop: 44, opacity: flashIn }}>
           2 hours earlier…
         </div>
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundColor: theme.red,
+            opacity: redWash * 0.2,
+            pointerEvents: "none",
+          }}
+        />
       </AbsoluteFill>
     );
   }

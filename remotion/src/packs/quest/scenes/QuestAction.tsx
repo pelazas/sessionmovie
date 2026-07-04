@@ -3,6 +3,7 @@ import { CornerMascot } from "../../../characters/CornerMascot";
 import { EASE_OUT } from "../../../easing";
 import type { ActionScene, ToolEvent } from "../../../screenplay";
 import { actionSchedule } from "../../../timing";
+import { flash, shake } from "../../../effects";
 import { Caption } from "../../Caption";
 import { Monster } from "../Monster";
 import { quest } from "../theme";
@@ -33,7 +34,7 @@ export const QuestAction: React.FC<{
   durationInFrames: number;
 }> = ({ scene, caption, durationInFrames }) => {
   const frame = useCurrentFrame();
-  const { slideDur, chipStart, chipLanded } = actionSchedule(scene, durationInFrames);
+  const { slideDur, chipLanded } = actionSchedule(scene, durationInFrames);
 
   // Landed attacks so far → boss HP + hit flash beat. Only the agent's
   // successful moves damage the boss (ok === false is the BUG countering —
@@ -56,8 +57,9 @@ export const QuestAction: React.FC<{
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const counterShake =
-    frame - recentCounter < 12 ? Math.sin((frame - recentCounter) * 2.2) * (12 - (frame - recentCounter)) : 0;
+  // feat/effects: boss counters HIT — shared shake primitive + red flash.
+  const counterHit = shake(frame, recentCounter, 12);
+  const counterFlash = flash(frame, recentCounter, 6);
   const wobble = Math.sin(frame * 0.12) * 6;
 
   const captionIn = interpolate(frame, [8, 25], [0, 1], {
@@ -66,8 +68,13 @@ export const QuestAction: React.FC<{
   });
 
   // Recent attack banners (keep the latest 5 visible).
+  // feat/effects speed ramp: later attacks dash in faster (compressed slide);
+  // landings stay exactly at chipLanded(i) — the audio ticks' source of truth.
+  const n = scene.events.length;
+  const slideFor = (i: number) =>
+    slideDur * (scene.intensity === "montage" && n > 1 ? 1 - 0.55 * (i / (n - 1)) : 1);
   const visible = scene.events
-    .map((event, i) => ({ event, i, p: interpolate(frame, [chipStart(i), chipStart(i) + slideDur], [0, 1], { easing: EASE_OUT, extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const }) }))
+    .map((event, i) => ({ event, i, p: interpolate(frame, [chipLanded(i) - slideFor(i), chipLanded(i)], [0, 1], { easing: EASE_OUT, extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const }) }))
     .filter(({ p }) => p > 0)
     .slice(-5);
 
@@ -84,7 +91,7 @@ export const QuestAction: React.FC<{
           right: 0,
           display: "flex",
           justifyContent: "center",
-          transform: `translateX(${counterShake}px)`,
+          transform: `translate(${counterHit.x}px, ${counterHit.y}px)`,
         }}
       >
         <div style={{ position: "relative" }}>
@@ -177,6 +184,17 @@ export const QuestAction: React.FC<{
         emotion={frame - recentCounter < 55 ? "panicking" : "confident"}
         seed="quest-battle-corner"
       />
+      {counterFlash > 0 ? (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundColor: quest.red,
+            opacity: counterFlash * 0.22,
+            pointerEvents: "none",
+          }}
+        />
+      ) : null}
       {caption ? <Caption text={caption} opacity={captionIn} /> : null}
     </AbsoluteFill>
   );

@@ -45,11 +45,19 @@ export const Action: React.FC<{
 
   // Chip pacing comes from the shared timing module — the audio layer reads
   // the same schedule for its per-chip ticks.
-  const { slideDur, chipStart, chipLanded, captionIn: captionInAt } = actionSchedule(scene, durationInFrames);
+  const { slideDur, chipLanded, captionIn: captionInAt } = actionSchedule(scene, durationInFrames);
+
+  // feat/effects speed ramp: montage cadence reads as accelerating because
+  // later chips fly in FASTER (compressed slide), while every chip still
+  // lands exactly at chipLanded(i) — the audio ticks read the same schedule,
+  // so landings stay the single source of truth.
+  const n = scene.events.length;
+  const slideFor = (i: number) =>
+    slideDur * (scene.intensity === "montage" && n > 1 ? 1 - 0.55 * (i / (n - 1)) : 1);
 
   // One progress evaluation per chip per frame, shared by scroll and render.
   const progresses = scene.events.map((_e, i) =>
-    interpolate(frame, [chipStart(i), chipStart(i) + slideDur], [0, 1], {
+    interpolate(frame, [chipLanded(i) - slideFor(i), chipLanded(i)], [0, 1], {
       easing: EASE_OUT,
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
