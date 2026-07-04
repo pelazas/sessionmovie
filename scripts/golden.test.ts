@@ -16,8 +16,11 @@ const fixtures = readdirSync(RAW_DIR)
   .filter((n) => n.endsWith(".jsonl"))
   .sort();
 
+// 8 after review removed two content-sensitive fixtures (see PR #3 review);
+// TODO grow back toward 10+ with genuinely diverse archetypes — a long
+// debugging slog and a big refactor are still missing from the corpus.
 test("fixture corpus is non-trivial", () => {
-  assert.ok(fixtures.length >= 10, `expected ≥10 fixtures, found ${fixtures.length}`);
+  assert.ok(fixtures.length >= 8, `expected ≥8 fixtures, found ${fixtures.length}`);
 });
 
 for (const name of fixtures) {
