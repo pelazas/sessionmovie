@@ -3,7 +3,7 @@ import { CornerMascot } from "../../../characters/CornerMascot";
 import { EASE_OUT } from "../../../easing";
 import type { ActionScene, ToolEvent } from "../../../screenplay";
 import { actionSchedule } from "../../../timing";
-import { flash, shake } from "../../../effects";
+import { cameraDrift, flash, shake } from "../../../effects";
 import { Caption } from "../../Caption";
 import { Monster } from "../Monster";
 import { quest } from "../theme";
@@ -34,6 +34,7 @@ export const QuestAction: React.FC<{
   durationInFrames: number;
 }> = ({ scene, caption, durationInFrames }) => {
   const frame = useCurrentFrame();
+  const drift = cameraDrift(frame, "quest-action", durationInFrames);
   const { slideDur, chipLanded } = actionSchedule(scene, durationInFrames);
 
   // Landed attacks so far → boss HP + hit flash beat. Only the agent's
@@ -80,7 +81,7 @@ export const QuestAction: React.FC<{
 
   return (
     <AbsoluteFill
-      style={{ backgroundColor: quest.bg, fontFamily: quest.mono, overflow: "hidden" }}
+      style={{ backgroundColor: quest.bg, fontFamily: quest.mono, overflow: "hidden", transform: drift.transform }}
     >
       {/* the boss, top half, staggering as attacks land */}
       <div

@@ -6,7 +6,7 @@ import {
 } from "remotion";
 import { EASE_OUT } from "../../../easing";
 import { titleSchedule } from "../../../timing";
-import { flash, shake } from "../../../effects";
+import { cameraDrift, flash, shake } from "../../../effects";
 import type { TitleScene } from "../../../screenplay";
 import { theme } from "../../../theme";
 import { Caption } from "../../Caption";
@@ -18,6 +18,7 @@ export const Title: React.FC<{
   durationInFrames: number;
 }> = ({ scene, caption, repo, durationInFrames }) => {
   const frame = useCurrentFrame();
+  const drift = cameraDrift(frame, "classic-title", durationInFrames);
   const { fps } = useVideoConfig();
 
   // Schedule (cold open, typing speed) comes from the shared timing module —
@@ -60,7 +61,7 @@ export const Title: React.FC<{
           alignItems: "center",
           fontFamily: theme.mono,
           padding: 70,
-          transform: `translate(${jolt.x}px, ${jolt.y}px)`,
+          transform: `${drift.transform} translate(${jolt.x}px, ${jolt.y}px)`,
         }}
       >
         <div
@@ -131,6 +132,7 @@ export const Title: React.FC<{
         alignItems: "center",
         fontFamily: theme.mono,
         padding: 60,
+        transform: drift.transform,
       }}
     >
       <div

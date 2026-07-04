@@ -1,5 +1,6 @@
 import { AbsoluteFill, Sequence, interpolate, useCurrentFrame } from "remotion";
 import { EASE_BACK_OUT, EASE_OUT } from "../../../easing";
+import { cameraDrift } from "../../../effects";
 import { dialogueSchedule } from "../../../timing";
 import { Mascot } from "../../../characters/Mascot";
 import type { DialogueScene } from "../../../screenplay";
@@ -17,6 +18,7 @@ export const Dialogue: React.FC<{
   durationInFrames: number;
 }> = ({ scene, caption, durationInFrames }) => {
   const frame = useCurrentFrame();
+  const drift = cameraDrift(frame, "classic-dialogue", durationInFrames);
 
   // Bubble pacing comes from the shared timing module — voiceover scheduling
   // reads the same captionIn to align narration with the caption beat.
@@ -94,7 +96,7 @@ export const Dialogue: React.FC<{
   };
 
   return (
-    <AbsoluteFill style={{ backgroundColor: theme.bg, fontFamily: theme.mono }}>
+    <AbsoluteFill style={{ backgroundColor: theme.bg, fontFamily: theme.mono, transform: drift.transform }}>
       {/* bubble stack — just above the puppets */}
       <div
         style={{

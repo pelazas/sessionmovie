@@ -2,7 +2,7 @@ import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remo
 import { EASE_OUT } from "../../../easing";
 import type { TitleScene } from "../../../screenplay";
 import { titleSchedule } from "../../../timing";
-import { flash, shake } from "../../../effects";
+import { cameraDrift, flash, shake } from "../../../effects";
 import { Monster } from "../Monster";
 import { Caption } from "../../Caption";
 import { quest } from "../theme";
@@ -18,6 +18,7 @@ export const QuestTitle: React.FC<{
   durationInFrames: number;
 }> = ({ scene, caption, durationInFrames }) => {
   const frame = useCurrentFrame();
+  const drift = cameraDrift(frame, "quest-title", durationInFrames);
   const { fps } = useVideoConfig();
   const { coldOpenFrames, typingStart, charsPerFrame, typingEnd } = titleSchedule(
     scene,
@@ -44,7 +45,7 @@ export const QuestTitle: React.FC<{
           alignItems: "center",
           fontFamily: quest.mono,
           padding: 80,
-          transform: `translate(${jolt.x}px, ${jolt.y}px)`,
+          transform: `${drift.transform} translate(${jolt.x}px, ${jolt.y}px)`,
         }}
       >
         <div style={{ opacity: flashIn, transform: `scale(${loom})`, transformOrigin: "center bottom" }}>
@@ -100,6 +101,7 @@ export const QuestTitle: React.FC<{
         alignItems: "center",
         fontFamily: quest.mono,
         padding: 60,
+        transform: drift.transform,
       }}
     >
       <div

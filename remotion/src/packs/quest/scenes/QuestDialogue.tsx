@@ -1,6 +1,7 @@
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { Mascot } from "../../../characters/Mascot";
 import { EASE_BACK_OUT, EASE_OUT } from "../../../easing";
+import { cameraDrift } from "../../../effects";
 import type { DialogueScene, Emotion } from "../../../screenplay";
 import { dialogueSchedule } from "../../../timing";
 import { Caption } from "../../Caption";
@@ -17,6 +18,7 @@ export const QuestDialogue: React.FC<{
   durationInFrames: number;
 }> = ({ scene, caption, durationInFrames }) => {
   const frame = useCurrentFrame();
+  const drift = cameraDrift(frame, "quest-dialogue", durationInFrames);
   const { usable, lineStart } = dialogueSchedule(scene, durationInFrames);
 
   let activeIndex = -1;
@@ -46,7 +48,7 @@ export const QuestDialogue: React.FC<{
   const glow = 0.5 + Math.sin(frame * 0.3) * 0.08;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: quest.bg, fontFamily: quest.mono }}>
+    <AbsoluteFill style={{ backgroundColor: quest.bg, fontFamily: quest.mono, transform: drift.transform }}>
       {/* firelight pool on the ground */}
       <div
         style={{

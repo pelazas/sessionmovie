@@ -1,5 +1,6 @@
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { EASE_BACK_OUT } from "../../../easing";
+import { cameraDrift } from "../../../effects";
 import type { StatsScene } from "../../../screenplay";
 import { statsSchedule } from "../../../timing";
 import { Caption } from "../../Caption";
@@ -31,6 +32,7 @@ export const QuestStats: React.FC<{
   durationInFrames: number;
 }> = ({ scene, caption, durationInFrames }) => {
   const frame = useCurrentFrame();
+  const drift = cameraDrift(frame, "quest-stats", durationInFrames);
   const { countsStart, achievementsStart, gradeStart } = statsSchedule(scene, durationInFrames);
   const cardIn = pop(frame, 0);
   const { counts } = scene;
@@ -54,6 +56,7 @@ export const QuestStats: React.FC<{
         fontFamily: quest.mono,
         justifyContent: "center",
         alignItems: "center",
+        transform: drift.transform,
         padding: 70,
       }}
     >
