@@ -11,6 +11,9 @@ import { writeScreenplay } from "../screenwriter/heuristic.js";
 import { writeScreenplayLLMDetailed } from "../screenwriter/llm.js";
 import { ScreenplaySchema, type Screenplay } from "../screenplay/schema.js";
 import { remotionCliInstalled, runNpx } from "./workspace.js";
+// voiceover integration (feat/voiceover)
+import { buildVoiceoverManifest } from "../voiceover/manifest.js";
+import { ttsConfigFromEnv } from "../voiceover/tts.js";
 
 // Matches the composition (remotion/src/Root.tsx + Classic.tsx): 30fps, each
 // scene rounds targetSec to whole frames. Keep in sync so the printed duration
@@ -27,7 +30,7 @@ function movieDurationSec(screenplay: Screenplay): number {
 
 function usage(): never {
   process.stderr.write(
-    "usage: sessionmovie <transcript.jsonl> [--out movie.mp4] [--keep-screenplay] [--no-llm]\n",
+    "usage: sessionmovie <transcript.jsonl> [--out movie.mp4] [--keep-screenplay] [--no-llm] [--voiceover] [--refresh-voices]\n",
   );
   process.exit(1);
 }
@@ -42,6 +45,8 @@ let input: string | undefined;
 let out = "movie.mp4";
 let keepScreenplay = false;
 let useLlm = true;
+let voiceover = false; // voiceover integration (feat/voiceover)
+let refreshVoices = false; // voiceover integration (feat/voiceover)
 for (let i = 0; i < args.length; i++) {
   const arg = args[i];
   if (arg === "--out" || arg === "-o") {
@@ -52,6 +57,12 @@ for (let i = 0; i < args.length; i++) {
     keepScreenplay = true;
   } else if (arg === "--no-llm") {
     useLlm = false;
+  } else if (arg === "--voiceover") {
+    // voiceover integration (feat/voiceover)
+    voiceover = true;
+  } else if (arg === "--refresh-voices") {
+    // voiceover integration (feat/voiceover)
+    refreshVoices = true;
   } else if (arg && !arg.startsWith("-")) {
     if (input) usage();
     input = arg;
@@ -108,6 +119,37 @@ process.stdout.write(
     `(${screenplay.scenes.map((s) => s.type).join(" → ")})\n`,
 );
 
+// ── voiceover integration block (feat/voiceover) ────────────────────────────
+// Opt-in ElevenLabs narration of scene captions (docs/audio.md prototype tier).
+// All API calls happen HERE, pre-render — never inside compositions. The
+// manifest rides as a renderer-side sidecar in the composition input props;
+// the frozen screenplay IR is untouched.
+let renderProps: Record<string, unknown> = screenplay;
+if (voiceover) {
+  const ttsConfig = ttsConfigFromEnv();
+  if (!ttsConfig) {
+    fail(
+      "--voiceover needs ELEVENLABS_API_KEY in the environment — export it or `set -a; source .env; set +a` first",
+    );
+  }
+  process.stdout.write(
+    `   voiceover: narrating captions (ElevenLabs, voice ${ttsConfig.voiceId}, ${ttsConfig.model})…\n`,
+  );
+  try {
+    const stats = await buildVoiceoverManifest(screenplay, ttsConfig, {
+      refresh: refreshVoices,
+    });
+    process.stdout.write(
+      `   voiceover: ${stats.manifest.cues.length} cue(s) — ${stats.apiCalls} API call(s), ` +
+        `${stats.cacheHits} cache hit(s), ${stats.skipped.length} skipped by fit rule\n`,
+    );
+    renderProps = { ...screenplay, voiceover: stats.manifest };
+  } catch (err) {
+    fail(`voiceover failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+// ── end voiceover integration block ─────────────────────────────────────────
+
 if (!remotionCliInstalled()) {
   fail("Remotion is not installed — run `npm install`, then `sessionmovie doctor` to verify setup");
 }
@@ -116,7 +158,8 @@ const screenplayPath = keepScreenplay
   ? join(dirname(outPath), `${basename(outPath).replace(/\.[^.]+$/, "")}.screenplay.json`)
   : join(dirname(outPath), `.${basename(outPath)}.screenplay.tmp.json`);
 mkdirSync(dirname(outPath), { recursive: true });
-writeFileSync(screenplayPath, `${JSON.stringify(screenplay, null, 2)}\n`);
+// renderProps = screenplay (+ voiceover sidecar when --voiceover) — see block above.
+writeFileSync(screenplayPath, `${JSON.stringify(renderProps, null, 2)}\n`);
 
 process.stdout.write("   rendering with Remotion (first run may take a few minutes)…\n");
 const code = await runNpx([
