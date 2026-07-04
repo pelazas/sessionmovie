@@ -1,4 +1,5 @@
 import { ClassicAudio } from "../../audio/ClassicAudio";
+import { PERSONAS } from "../../../../src/genre/personas";
 import type { GenrePack } from "../types";
 import { quest } from "./theme";
 import { QuestAction } from "./scenes/QuestAction";
@@ -36,6 +37,6 @@ export const questPack: GenrePack = {
   },
   Audio: ClassicAudio,
   background: quest.bg,
-  captionPersona:
-    "a fantasy quest chronicler: grave, epic, slightly overwrought about mundane coding events — every bug is a beast, every fix a legend",
+  // One source of truth for persona voices: src/genre/personas.ts (pure module).
+  captionPersona: PERSONAS.quest,
 };
