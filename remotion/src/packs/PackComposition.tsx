@@ -34,7 +34,7 @@ export const makePackComposition = (pack: GenrePack): React.FC<Screenplay> => {
   };
 
   // ── scene-transitions block (feat/effects) ────────────────────────────────
-  // A 2-frame flash/whip at every scene handoff, per-pack flavored: classic
+  // A 4-frame flash/whip at every scene handoff, per-pack flavored: classic
   // is a cold shutter, quest a torch flicker. Cut FRAMES come from the shared
   // sceneCutFrames (beat-aligned upstream by the CLI quantizer) — no timing
   // logic of our own. The whoosh SFX cue in audio/events.ts fires at the
@@ -44,7 +44,9 @@ export const makePackComposition = (pack: GenrePack): React.FC<Screenplay> => {
     const { fps } = useVideoConfig();
     let opacity = 0;
     for (const cut of sceneCutFrames(screenplay, fps)) {
-      opacity = Math.max(opacity, flash(frame, cut - 2, 4));
+      // Peak ON the boundary frame: the veil covers the content swap instead of
+      // decaying to half by the time the scenes actually switch.
+      opacity = Math.max(opacity, flash(frame, cut, 4));
     }
     if (opacity === 0) return null;
     const torch = pack.id === "quest";

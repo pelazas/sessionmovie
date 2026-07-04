@@ -58,6 +58,9 @@ export interface FreezeSlam {
   active: boolean;
 }
 
+/** Frames the freeze-slam holds time still — consumers re-budget schedules with this. */
+export const SLAM_HOLD = 18;
+
 /**
  * The anime beat: at `at`, time FREEZES for `holdFrames` while the subject
  * zooms in; then time resumes where it left off (the hold is inserted, not
@@ -66,7 +69,7 @@ export interface FreezeSlam {
 export const freezeSlam = (
   frame: number,
   at: number,
-  holdFrames = 18,
+  holdFrames = SLAM_HOLD,
   zoom = 1.22,
 ): FreezeSlam => {
   if (frame < at) return { effectiveFrame: frame, scale: 1, active: false };
@@ -93,7 +96,10 @@ export interface CameraDrift {
 
 /**
  * Subtle per-scene camera life: a slow push-in (≤3%) with a seeded pan
- * direction, so no two scenes drift identically and no frame is ever
+ * direction, so scenes of the same type share a drift path (per-instance seeds are a later
+ * polish). KNOWN DEBT: drift currently wraps each scene's root — including the
+ * caption/mascot HUD; magnitude is kept small (≤1.2% / 4px) until the HUD is
+ * split onto an undrifted layer. and no frame is ever
  * static. Deterministic: direction comes from Remotion's seeded random().
  */
 export const cameraDrift = (
@@ -103,8 +109,8 @@ export const cameraDrift = (
 ): CameraDrift => {
   const progress = Math.min(1, Math.max(0, frame / Math.max(1, durationInFrames)));
   const angle = random(`drift-${seed}`) * Math.PI * 2;
-  const scale = 1 + 0.025 * progress;
-  const x = Math.cos(angle) * 8 * progress;
-  const y = Math.sin(angle) * 8 * progress;
+  const scale = 1 + 0.012 * progress;
+  const x = Math.cos(angle) * 4 * progress;
+  const y = Math.sin(angle) * 4 * progress;
   return { scale, x, y, transform: `scale(${scale}) translate(${x}px, ${y}px)` };
 };
