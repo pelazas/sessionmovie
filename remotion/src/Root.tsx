@@ -1,18 +1,20 @@
 import "./index.css";
 import { Composition } from "remotion";
-import { MyComposition } from "./Composition";
+import { Classic, totalFrames } from "./Classic";
+import { sampleScreenplay } from "./screenplay/sample";
+
+const FPS = 30;
 
 export const RemotionRoot: React.FC = () => {
   return (
-    <>
-      <Composition
-        id="MyComp"
-        component={MyComposition}
-        durationInFrames={60}
-        fps={30}
-        width={1280}
-        height={720}
-      />
-    </>
+    <Composition
+      id="Classic"
+      component={Classic}
+      durationInFrames={totalFrames(sampleScreenplay, FPS)}
+      fps={FPS}
+      width={1080}
+      height={1920}
+      defaultProps={{ screenplay: sampleScreenplay }}
+    />
   );
 };
