@@ -6,7 +6,8 @@ import type {
   StatsScene,
   TitleScene,
 } from "../screenplay";
-import type { VoiceoverManifest } from "../../../src/voiceover/types";
+import { createContext } from "react";
+import type { SceneVoiceoverCue, VoiceoverManifest } from "../../../src/voiceover/types";
 
 /**
  * The GenrePack contract (docs/genre-packs.md), extracted at the second
@@ -40,3 +41,13 @@ export interface GenrePack {
   /** Prompt fragment for the punch-up pass — the genre's voice. */
   captionPersona: string;
 }
+
+// ── voiceover cue plumbing (feat/vo-sync) ────────────────────────────────────
+/**
+ * The current scene's narration cue, provided by PackComposition and consumed
+ * by Caption — scenes stay untouched. null = no cue (no --voiceover, caption
+ * skipped by the fit rule, or captionless scene): Caption then behaves
+ * exactly as before (schedule-driven).
+ */
+export const VoiceoverCueContext = createContext<SceneVoiceoverCue | null>(null);
+export type { SceneVoiceoverCue };

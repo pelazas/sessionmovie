@@ -1,7 +1,9 @@
 import { AbsoluteFill, Series, useVideoConfig } from "remotion";
+import { sceneLocalCue } from "../../../src/voiceover/sync";
+import type { VoiceoverManifest } from "../../../src/voiceover/types";
 import type { Scene, Screenplay } from "../screenplay";
 import { sceneFrames } from "../timing";
-import type { GenrePack } from "./types";
+import { VoiceoverCueContext, type GenrePack } from "./types";
 
 /**
  * One composition body shared by every pack: audio layer + a Series of
@@ -30,7 +32,9 @@ export const makePackComposition = (pack: GenrePack): React.FC<Screenplay> => {
     }
   };
 
-  const PackComposition: React.FC<Screenplay> = (screenplay) => {
+  const PackComposition: React.FC<Screenplay & { voiceover?: VoiceoverManifest }> = (
+    screenplay,
+  ) => {
     const { fps } = useVideoConfig();
     return (
       <AbsoluteFill style={{ backgroundColor: pack.background }}>
@@ -38,9 +42,14 @@ export const makePackComposition = (pack: GenrePack): React.FC<Screenplay> => {
         <Series>
           {screenplay.scenes.map((scene, i) => {
             const frames = sceneFrames(scene, fps);
+            // voiceover cue plumbing (feat/vo-sync): resolve this scene's cue
+            // to scene-local frames once; Caption consumes it via context.
+            const cue = screenplay.voiceover?.cues.find((c) => c.sceneIndex === i);
             return (
               <Series.Sequence key={i} durationInFrames={frames}>
-                <SceneRenderer scene={scene} screenplay={screenplay} durationInFrames={frames} />
+                <VoiceoverCueContext.Provider value={cue ? sceneLocalCue(cue, scene, fps) : null}>
+                  <SceneRenderer scene={scene} screenplay={screenplay} durationInFrames={frames} />
+                </VoiceoverCueContext.Provider>
               </Series.Sequence>
             );
           })}
