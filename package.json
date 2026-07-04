@@ -10,7 +10,8 @@
   "scripts": {
     "parse": "tsx src/cli/parse.ts",
     "validate": "tsx src/cli/validate.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "render": "npm run render -w @sessionmovie/renderer"
   },
   "dependencies": {
     "zod": "^3.23.8"
