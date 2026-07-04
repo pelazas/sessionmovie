@@ -62,7 +62,7 @@ The screenwriter is prompted toward a rhythm, not free composition:
 
 ## Punch-up pass contract
 
-Input: a valid screenplay + a pack's `captionPersona`. Output: the same screenplay with only `text`, `caption`, `grade`, and achievement titles rewritten. Structure, timings, scene order, and emotions are immutable in this pass. This is what makes `--genre` re-renders cheap and safe.
+Input: a valid screenplay + a pack's `captionPersona`. Output: the same screenplay with only `caption`, `grade`, and achievement titles rewritten. Structure, timings, scene order, emotions, and every dialogue line's `text` are immutable in this pass — dialogue is documentary (docs/v1-storychange.md): the session's real words are condensed by the beat pass and never persona-translated. Caption anchors (file names, numbers, timestamps) must survive a rewrite verbatim. This is what makes `--genre` re-renders cheap and safe.
 
 ## Failure modes
 

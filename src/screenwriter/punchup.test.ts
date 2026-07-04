@@ -138,13 +138,24 @@ describe("dialogue is documentary (docs/v1-storychange.md)", () => {
 });
 
 describe("caption anchors survive the rewrite", () => {
-  it("captionAnchors finds times, files, PR refs and numbers", () => {
-    // "08"/"17"/"34" also match as bare numbers — redundant but harmless,
-    // since violation checks are substring-based.
+  it("captionAnchors finds times, files, PR refs and numbers, deduping subsumed ones", () => {
+    // "08"/"17"/"34" also match as bare numbers but are subsumed by
+    // "08:34"/"#17" and dropped — one lost timestamp is one violation.
     assert.deepEqual(
       captionAnchors("08:34 — PR #17 lands in Showcase.tsx, 46 files later").sort(),
-      ["#17", "08", "08:34", "17", "34", "46", "Showcase.tsx"].sort(),
+      ["#17", "08:34", "46", "Showcase.tsx"].sort(),
     );
+  });
+
+  it("a numeric anchor does not survive as a substring of a different number", () => {
+    const anchored = JSON.parse(JSON.stringify(input)) as Screenplay;
+    const scene = anchored.scenes[3];
+    if (scene) scene.caption = "7 tests fail in auth.ts";
+    const bad = JSON.parse(JSON.stringify(anchored)) as Screenplay;
+    const badScene = bad.scenes[3];
+    if (badScene) badScene.caption = "47 tests, all doomed, in auth.ts";
+    const violations = lostCaptionAnchors(anchored, bad);
+    assert.ok(violations.some((v) => v.includes('"7"')));
   });
 
   it("a rewrite that drops a number is a violation that quotes the anchor", () => {

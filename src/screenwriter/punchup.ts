@@ -151,7 +151,25 @@ export function captionAnchors(caption: string): string[] {
   for (const pattern of ANCHOR_PATTERNS) {
     for (const match of caption.matchAll(pattern)) anchors.add(match[0]);
   }
-  return [...anchors];
+  // Drop anchors subsumed by a longer one from the same caption ("08"/"34"
+  // inside "08:34", "17" inside "#17") — they can't be checked independently
+  // and would triple-report a single lost timestamp in the repair prompt.
+  return [...anchors].filter((a) => ![...anchors].some((b) => b !== a && b.includes(a)));
+}
+
+const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * Whether an anchor survives in the rewritten caption. Numeric anchors need
+ * digit boundaries — "7" inside "47" is a different number, not a survival.
+ * Everything else (file names, #refs, times) is distinctive enough for a
+ * plain substring check.
+ */
+function anchorSurvives(anchor: string, after: string): boolean {
+  if (/^\d/.test(anchor)) {
+    return new RegExp(`(?<![\\d.,:])${escapeRegExp(anchor)}(?![\\d.,:]?\\d)`).test(after);
+  }
+  return after.includes(anchor);
 }
 
 /**
@@ -167,7 +185,7 @@ export function lostCaptionAnchors(input: Screenplay, candidate: Screenplay): st
     const after = candidate.scenes[i]?.caption;
     if (!before || !after) return; // presence changes are structuralDiff's job
     for (const anchor of captionAnchors(before)) {
-      if (!after.includes(anchor)) {
+      if (!anchorSurvives(anchor, after)) {
         violations.push(`scenes[${i}].caption lost its anchor "${anchor}" (was: "${before}")`);
       }
     }
