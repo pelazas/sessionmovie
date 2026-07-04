@@ -46,6 +46,7 @@ Narration must fit its scene, not stretch it: the screenwriter writes narration 
 - **Stock/designed ElevenLabs voices only.** No cloning of real people (no fake Attenborough — a *generic* measured-documentary delivery, not an imitation of a specific person's voice).
 - Voice choice is a genre-pack property: packs gain `audio.voice?: { voiceId, delivery }` next to `captionPersona`, so the same narration text sounds like a heist briefing in heist and a field log in nature-doc.
 - Voiceover is **opt-in** (`--voiceover`), requires the user's own `ELEVENLABS_API_KEY`, and the redaction layer has already run upstream — narration text is screenplay text, which is redacted by construction.
+- **Key permissions (field lesson, 2026-07-04):** ElevenLabs keys can be created scope-restricted. Synthesis needs **Text to Speech**; `doctor` validates keys with `GET /v1/voices`, which needs **Voices: Read** — so a TTS-only key renders fine but fails doctor with a bare 401 and a misleading "create a fresh key" hint. Known gap for v0.1.1: `checkApiKey` should surface the ElevenLabs error body (`missing_permissions` vs `invalid_api_key`, which is safe to print) and name the missing scope in the fix hint.
 
 ### Cost
 
