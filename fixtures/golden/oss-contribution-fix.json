@@ -1,0 +1,23 @@
+{
+  "fixture": "oss-contribution-fix.jsonl",
+  "totals": {
+    "turns": 3,
+    "toolCalls": 56,
+    "filesTouched": 1,
+    "added": 2,
+    "removed": 0,
+    "commands": 49,
+    "failedCommands": 7
+  },
+  "result": {
+    "kind": "screenplay",
+    "sceneCount": 4,
+    "sceneTypes": [
+      "title",
+      "action",
+      "showcase",
+      "stats"
+    ],
+    "targetDurationSec": 50
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "fixture": "terminal-alias-quickie.jsonl",
+  "totals": {
+    "turns": 2,
+    "toolCalls": 3,
+    "filesTouched": 0,
+    "added": 0,
+    "removed": 0,
+    "commands": 2,
+    "failedCommands": 0
+  },
+  "result": {
+    "kind": "screenplay",
+    "sceneCount": 3,
+    "sceneTypes": [
+      "title",
+      "action",
+      "stats"
+    ],
+    "targetDurationSec": 50
+  }
+}

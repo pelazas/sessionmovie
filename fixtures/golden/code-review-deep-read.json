@@ -1,0 +1,16 @@
+{
+  "fixture": "code-review-deep-read.jsonl",
+  "totals": {
+    "turns": 0,
+    "toolCalls": 0,
+    "filesTouched": 0,
+    "added": 0,
+    "removed": 0,
+    "commands": 0,
+    "failedCommands": 0
+  },
+  "result": {
+    "kind": "decline",
+    "reason": "no user prompt found — nothing to make a movie about"
+  }
+}

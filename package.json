@@ -11,6 +11,7 @@
     "parse": "tsx src/cli/parse.ts",
     "validate": "tsx src/cli/validate.ts",
     "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test scripts/golden.test.ts",
     "render": "npm run render -w @sessionmovie/renderer"
   },
   "dependencies": {

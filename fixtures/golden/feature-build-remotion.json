@@ -1,0 +1,23 @@
+{
+  "fixture": "feature-build-remotion.jsonl",
+  "totals": {
+    "turns": 2,
+    "toolCalls": 80,
+    "filesTouched": 10,
+    "added": 946,
+    "removed": 11,
+    "commands": 39,
+    "failedCommands": 2
+  },
+  "result": {
+    "kind": "screenplay",
+    "sceneCount": 4,
+    "sceneTypes": [
+      "title",
+      "action",
+      "showcase",
+      "stats"
+    ],
+    "targetDurationSec": 50
+  }
+}
