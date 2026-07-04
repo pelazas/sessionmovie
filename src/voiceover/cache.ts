@@ -39,6 +39,8 @@ export interface CacheResult {
   publicPath: string;
   /** Absolute path to the character-timestamps sidecar (same key, .timestamps.json). */
   timestampsPath: string;
+  /** Path relative to remotion/public/ — safe to serialize into props. */
+  timestampsPublicPath: string;
   /** True when this call hit the network. */
   apiCalled: boolean;
 }
@@ -60,13 +62,18 @@ export async function getOrSynthesize(
   const absolutePath = join(cacheDir, file);
   const publicPath = `${CACHE_DIR_NAME}/${file}`;
   const timestampsPath = join(cacheDir, `${key}.timestamps.json`);
+  const timestampsPublicPath = `${CACHE_DIR_NAME}/${key}.timestamps.json`;
 
   if (!options.refresh && existsSync(absolutePath) && existsSync(timestampsPath)) {
-    return { absolutePath, publicPath, timestampsPath, apiCalled: false };
+    return { absolutePath, publicPath, timestampsPath, timestampsPublicPath, apiCalled: false };
   }
   const { audio, alignment } = await synthesizeWithTimestamps(text, config);
   mkdirSync(cacheDir, { recursive: true });
   writeFileSync(absolutePath, audio);
-  writeFileSync(timestampsPath, `${JSON.stringify(alignment)}\n`);
-  return { absolutePath, publicPath, timestampsPath, apiCalled: true };
+  // Only persist a real alignment: a `null` sidecar would read as a permanent
+  // cache hit with no highlight, unrecoverable without --refresh-voices.
+  if (alignment != null) {
+    writeFileSync(timestampsPath, `${JSON.stringify(alignment)}\n`);
+  }
+  return { absolutePath, publicPath, timestampsPath, timestampsPublicPath, apiCalled: true };
 }

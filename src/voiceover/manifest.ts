@@ -168,7 +168,9 @@ export async function buildVoiceoverManifest(
       file: cached.publicPath,
       durationSec,
       text,
-      timestampsFile: cached.timestampsPath,
+      // public-relative like `file` — absolute host paths would embed the local
+      // username in shareable props sidecars and break cross-machine reproducibility.
+      timestampsFile: cached.timestampsPublicPath,
       words: wordsFromAlignment(readAlignment(cached.timestampsPath)),
     });
   }
