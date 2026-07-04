@@ -53,8 +53,30 @@ Rules:
 - No new scene types. The escape hatch (post-v1) is an optional `custom` scene with a mandatory fallback rendering.
 - Determinism rules apply (seeded `random()` only).
 
+## Genre selection — who picks, and how
+
+Two layers, deliberately separate:
+
+**Layer 1 — deterministic default (CLI, no LLM).** `Timeline.totals` is a session fingerprint; a rules table evaluated top-down, first match wins:
+
+| Session shape (from totals) | Auto genre | Why |
+|---|---|---|
+| `failedCommands ≥ 3`, final command green | `quest` | the comeback story — battles lost, war won |
+| `failedCommands ≥ 3`, ends red | `horror` | it never worked |
+| clean run (0 failures), files touched | `heist` | in, out, nobody saw us |
+| read-heavy (reads ≫ edits), long duration | `nature-doc` | observing the agent forage |
+| everything else | `classic` | the reference look |
+
+Rules are code, testable: each fixture's golden pins its auto-genre, so a rules change shows up as a reviewed diff. Until a pack ships, its rule falls through to `classic`.
+
+**Layer 2 — overrides.** `--genre <id>` always wins. Optionally the screenwriter *suggests* a genre during the beat pass (it's the only thing that has read the story) — the suggestion travels as a **sidecar next to the screenplay, never inside it**: the screenplay stays genre-neutral so re-rendering in another genre never re-runs analysis.
+
+## Extraction status (honest)
+
+Today there is one hardcoded pack (`classic`) — deliberate, per the "extract at genre #2" guardrail. The seams are ready: one dispatch switch in `Classic.tsx`, all styling via `theme.ts`, audio as a self-contained layer. Building `quest` performs the extraction: `packs/<id>/` + registry, one `<Composition>` per pack in Root, `--genre` in the CLI, and **a shared per-scene timing module** that scenes and audio both read (killing the mirrored constants in `audio/events.ts` — the one real extraction hazard, flagged in-code).
+
 ## Planned packs
 
-- **v1:** `classic` (reference).
-- **v1.1:** `heist` — built second on purpose; extracting the `GenrePack` interface happens here, when its real requirements are known.
-- **Then:** `nature-doc`, `sports-replay`, `horror` — and community PRs.
+- **v1:** `classic` (reference). ✅ shipped
+- **Next:** `quest` — the flagship: the session as a monster hunt, the two characters (see characters.md) center stage, failures as bosses. Built second on purpose; the GenrePack extraction happens here. The metaphor is a rendering decision: `action` events = attacks, `showcase(fail)` = the boss lands a hit, `showcase(pass)` = boss defeated, `dialogue` = campfire, `stats` = victory screen with loot.
+- **Then:** `heist`, `nature-doc`, `horror`, `sports-replay` — and community PRs.

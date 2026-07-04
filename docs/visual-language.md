@@ -20,7 +20,9 @@ Dark, editor-aesthetic canvas. Recurring elements:
 
 ## Characters (dialogue scenes)
 
-Two characters, visual-novel / comic-panel style: **the user** (generic dev avatar; configurable later) and **Claude** (small robot — also the corner-mascot and the brand).
+Full spec: **characters.md** (original mascot — never the Claude logo/starburst, trademark —, SVG puppet rig, emotion-enum faces, contact-sheet acceptance). Summary: two characters, visual-novel / comic-panel style: **the user** (generic dev avatar; configurable later) and **the agent** (small terminal-faced robot — also the corner-mascot and the brand).
+
+**Tone rule: one code money-shot per movie; characters everywhere else.** One real diff/red test is proof; three is a lecture. The screenwriter weights dialogue + comedy up and caps showcase scenes at 1–2.
 
 - **Poses, not animation.** Static sprites with expression variants + speech bubbles popping on the beat + slight bounce on emphasis.
 - **The `Emotion` enum bounds the art budget**: ~7 expressions × 2 characters ≈ 14 sprites, one commission or one afternoon with an image model. The screenwriter picks emotion per line from the enum, so assets can never explode.

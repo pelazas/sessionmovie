@@ -28,8 +28,9 @@
 
 Each item is a feature launch = a new movie, made by the tool:
 
-- **`heist` pack** — and with it, extract the real `GenrePack` interface (rule: abstraction is extracted at the second consumer, not before).
-- **Characters** — the two-sprite set (user + Claude robot), ~7 emotions each, dialogue scenes go visual-novel.
+- **Screenwriter prompt v2** — fun-first: one code money-shot per movie, dialogue/comedy weighted up (characters.md tone rule).
+- **Character pack** — agent-authored SVG puppets (original mascot + user avatar), 7 emotion faces mapping the enum, `<Mascot>` component, contact-sheet acceptance (characters.md).
+- **`quest` pack** — the flagship genre: session as monster hunt, characters center stage — and with it, extract the real `GenrePack` interface + shared timing module (rule: abstraction is extracted at the second consumer, not before). Genre auto-pick rules land here too (genre-packs.md).
 - **Achievements + grade** on the stats card.
 - **`--bloopers` mode.**
 - **More packs:** `nature-doc`, `sports-replay`, `horror`. Open the contribution path (pack authoring guide, CC0 asset checklist).
