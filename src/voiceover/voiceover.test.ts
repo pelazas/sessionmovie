@@ -46,9 +46,20 @@ test("fit rule: cue fits at exactly availableSec * ratio, not above", () => {
 });
 
 test("availableSecFor: the caption follows the cue — the window is the scene minus the lead-in", () => {
-  // dialogue targetSec 10 → 300 frames − 6 lead-in → 9.8s window
+  // non-dialogue targetSec 10 → 300 frames − 6 lead-in → 9.8s window
+  const action = {
+    type: "action" as const,
+    events: [{ tool: "Bash", summary: "runs tests" }],
+    intensity: "steady" as const,
+    targetSec: 10,
+  };
+  assert.equal(Math.round(availableSecFor(action) * 100) / 100, 9.8);
+});
+
+test("availableSecFor: dialogue narration budget is half the window — bubbles keep the rest", () => {
+  // dialogue targetSec 10 → 9.8s window × 0.5 share → 4.9s
   const scene = screenplayWith(["x"], 10).scenes[0]!;
-  assert.equal(Math.round(availableSecFor(scene) * 100) / 100, 9.8);
+  assert.equal(Math.round(availableSecFor(scene) * 100) / 100, 4.9);
 });
 
 test("fit rule ratio is the documented 0.9", () => {
@@ -84,7 +95,7 @@ test("manifest: captionless scenes get no cue; fit-rule overflow is skipped with
         apiCalled: true,
       }),
       readAlignment: () => null,
-      // dialogue targetSec 10 → caption lead-in at frame 6 → 9.8s window × 0.9 = 8.82s limit:
+      // dialogue targetSec 10 → 9.8s window × 0.5 dialogue share × 0.9 = 4.41s limit:
       // first caption 2s (fits), third 12s (skipped)
       probe: (path) => (path.includes("13") ? 2 : 12),
     },

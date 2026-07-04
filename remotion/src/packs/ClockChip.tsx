@@ -18,6 +18,11 @@ import { theme } from "../theme";
 /** The current scene's pre-formatted time-of-day; provided by PackComposition. */
 export const SceneTimeContext = createContext<string | null>(null);
 
+/** Renderable entries are strictly clock-shaped ("HH:MM", 24h). Redaction
+ * rule (CLAUDE.md): this render path must not print arbitrary sidecar
+ * strings — anything that isn't a time is dropped, not displayed. */
+const CLOCK_SHAPE = /^\d{1,2}:\d{2}$/;
+
 export const ClockChip: React.FC<{
   /** Pack palette overrides — defaults are the classic theme tokens. */
   color?: string;
@@ -26,7 +31,7 @@ export const ClockChip: React.FC<{
 }> = ({ color = theme.textDim, background = theme.panel, border = theme.panelBorder }) => {
   const time = useContext(SceneTimeContext);
   const frame = useCurrentFrame();
-  if (!time) return null;
+  if (!time || !CLOCK_SHAPE.test(time)) return null;
 
   const fadeIn = interpolate(frame, [6, 22], [0, 0.9], {
     extrapolateLeft: "clamp",

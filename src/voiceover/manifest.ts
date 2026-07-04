@@ -70,13 +70,21 @@ export const FIT_RATIO = 0.9;
 export const FPS = 30; // mirrors the composition fps (remotion/src/Root.tsx)
 /** Frames reserved at the scene start before narration may begin. */
 export const MIN_LEAD_FRAMES = 6;
+/**
+ * Dialogue scenes are a narration LEAD-IN followed by the bubble train (one
+ * voice at a time, docs/v1-storychange.md) — the bubbles ARE the scene, so
+ * narration may claim at most half the window. Other scene types keep the
+ * whole scene minus the lead-in.
+ */
+export const DIALOGUE_NARRATION_SHARE = 0.5;
 export function cueFits(durationSec: number, availableSec: number): boolean {
   return durationSec <= availableSec * FIT_RATIO;
 }
 /** Seconds available for narration in a scene (scene length minus the lead-in). */
 export function availableSecFor(scene: Screenplay["scenes"][number]): number {
   const frames = sceneFrames(scene, FPS);
-  return Math.max(0, frames - MIN_LEAD_FRAMES) / FPS;
+  const window = Math.max(0, frames - MIN_LEAD_FRAMES) / FPS;
+  return scene.type === "dialogue" ? window * DIALOGUE_NARRATION_SHARE : window;
 }
 void captionInFrame; // still used by the renderer-side clamp; kept for parity
 

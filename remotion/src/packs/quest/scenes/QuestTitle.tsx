@@ -5,7 +5,7 @@ import { titleSchedule } from "../../../timing";
 import { cameraDrift, flash, shake } from "../../../effects";
 import { Monster } from "../Monster";
 import { Caption } from "../../Caption";
-import { ClockChip } from "../../ClockChip";
+import { QuestClockChip } from "../QuestClockChip";
 import { quest } from "../theme";
 
 /**
@@ -160,7 +160,7 @@ export const QuestTitle: React.FC<{
           </div>
         </div>
       </div>
-      <ClockChip color={quest.textDim} background={quest.panel} border={quest.panelBorder} />
+      <QuestClockChip />
       {caption ? <Caption text={caption} opacity={captionIn} /> : null}
     </AbsoluteFill>
   );

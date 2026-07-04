@@ -14,6 +14,11 @@ import {
   sceneLocalCue,
   wordsFromAlignment,
 } from "../../remotion/src/packs/voiceoverSync.js";
+import {
+  CAPTION_RELEASE_END,
+  DIALOGUE_LEAD_RELEASE,
+  dialogueLeadSchedule,
+} from "../../remotion/src/timing.js";
 
 const tenth = (i: number) => Math.round(i * 100) / 1000; // exact 0.1 steps, no FP drift
 const alignmentFor = (text: string) => ({
@@ -119,4 +124,36 @@ describe("captionRenderState", () => {
     assert.ok(releasing > 0 && releasing < 1);
     assert.equal(captionRenderState(cue, 176, 1).opacity, 0);
   });
+});
+
+describe("dialogueLeadSchedule (one voice at a time)", () => {
+  const lines = { type: "dialogue" as const, lines: [
+    { speaker: "claude" as const, text: "a", emotion: "neutral" as const },
+    { speaker: "user" as const, text: "b", emotion: "neutral" as const },
+  ], targetSec: 10 };
+
+  it("no cue: bubbles start immediately, caption beat at 70% (closing beat)", () => {
+    const s = dialogueLeadSchedule(lines, 300, null);
+    assert.equal(s.leadInEnd, 0);
+    assert.equal(s.lineStart(0), 10);
+    assert.equal(s.usable, 210);
+  });
+
+  it("with a cue: bubble train waits for full caption release after narration", () => {
+    const s = dialogueLeadSchedule(lines, 300, 138);
+    assert.equal(s.leadInEnd, 138 + DIALOGUE_LEAD_RELEASE);
+    assert.equal(s.lineStart(0), s.leadInEnd + 10);
+  });
+
+  it("an over-long cue clamps the lead-in to 60% — bubbles always render", () => {
+    // fit-gate-illegal cue fed by hand: end at frame 289 of 300
+    const s = dialogueLeadSchedule(lines, 300, 289);
+    assert.equal(s.leadInEnd, 180);
+    assert.ok(s.lineStart(1) < 300 - 12, "last bubble fully pops inside the scene");
+  });
+
+  it("release gap derives from the caption release constant", () => {
+    assert.equal(DIALOGUE_LEAD_RELEASE, CAPTION_RELEASE_END + 4);
+  });
+
 });

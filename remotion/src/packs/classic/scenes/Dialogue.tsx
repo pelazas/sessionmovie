@@ -2,7 +2,7 @@ import { useContext } from "react";
 import { AbsoluteFill, Sequence, interpolate, useCurrentFrame } from "remotion";
 import { EASE_BACK_OUT, EASE_OUT } from "../../../easing";
 import { cameraDrift } from "../../../effects";
-import { dialogueSchedule } from "../../../timing";
+import { dialogueLeadSchedule } from "../../../timing";
 import { Mascot } from "../../../characters/Mascot";
 import type { DialogueScene } from "../../../screenplay";
 import type { Emotion } from "../../../screenplay";
@@ -24,24 +24,15 @@ export const Dialogue: React.FC<{
   const cue = useContext(VoiceoverCueContext);
   const drift = cameraDrift(frame, "classic-dialogue", durationInFrames);
 
-  // ── text economy: one voice at a time (docs/v1-storychange.md) ────────────
-  // Caption + narration play as a LEAD-IN; the bubble train starts only after
-  // the caption has fully released — never caption text over a popping
-  // bubble. The schedule SHAPE is untouched: the same dialogueSchedule just
-  // runs inside the post-lead-in window. Extreme cues (fit rule allows up to
-  // ~90% of the scene) compress the bubble train instead of overlapping it.
-  const { captionIn: captionInFrame } = dialogueSchedule(scene, durationInFrames);
-  const CAPTION_READ = 40; // caption-only lead-in hold, frames
-  const RELEASED = 19; // Caption's sync release (~15 frames) + safety margin
-  const leadInEnd = cue
-    ? cue.endFrame + RELEASED
-    : caption
-      ? captionInFrame + 12 + CAPTION_READ + 16
-      : 0;
-  const shifted = dialogueSchedule(scene, Math.max(1, durationInFrames - leadInEnd));
-  const lineStart = (i: number) => leadInEnd + shifted.lineStart(i);
-  const usable = leadInEnd + shifted.usable;
-  // ── end text economy block ─────────────────────────────────────────────────
+  // One voice at a time (docs/v1-storychange.md): with narration, caption +
+  // cue play as a lead-in and the bubble train runs after; without, bubbles
+  // start immediately and a caption is a closing beat after the last bubble.
+  // All the math lives in timing.ts (dialogueLeadSchedule).
+  const { usable, lineStart } = dialogueLeadSchedule(
+    scene,
+    durationInFrames,
+    cue ? cue.endFrame : null,
+  );
 
   // The line currently "on the air" drives the puppets.
   let activeIndex = -1;
@@ -59,19 +50,12 @@ export const Dialogue: React.FC<{
   };
   const activeSpeaker = activeIndex >= 0 ? scene.lines[activeIndex]?.speaker : undefined;
 
-  // Caption-only lead-in opacity (with a cue, Caption is narration-driven and
-  // ignores this): in fast, hold, fully out before the first bubble pops.
-  const captionIn = interpolate(
-    frame,
-    [
-      captionInFrame,
-      captionInFrame + 12,
-      captionInFrame + 12 + CAPTION_READ,
-      captionInFrame + 24 + CAPTION_READ,
-    ],
-    [0, 1, 1, 0],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
-  );
+  // Closing-beat caption opacity for cueless captions (with a cue, Caption
+  // runs narration-driven in sync mode and ignores this schedule opacity).
+  const captionIn = interpolate(frame, [usable, usable + 18], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
   const puppetsIn = interpolate(frame, [0, 12], [0, 1], {
     easing: EASE_OUT,
     extrapolateLeft: "clamp",

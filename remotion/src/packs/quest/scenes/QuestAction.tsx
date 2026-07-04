@@ -5,7 +5,7 @@ import type { ActionScene, ToolEvent } from "../../../screenplay";
 import { actionSchedule } from "../../../timing";
 import { cameraDrift, flash, shake } from "../../../effects";
 import { Caption } from "../../Caption";
-import { ClockChip } from "../../ClockChip";
+import { QuestClockChip } from "../QuestClockChip";
 import { Monster } from "../Monster";
 import { quest } from "../theme";
 
@@ -197,7 +197,7 @@ export const QuestAction: React.FC<{
           }}
         />
       ) : null}
-      <ClockChip color={quest.textDim} background={quest.panel} border={quest.panelBorder} />
+      <QuestClockChip />
       {caption ? <Caption text={caption} opacity={captionIn} /> : null}
     </AbsoluteFill>
   );
