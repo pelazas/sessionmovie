@@ -1,5 +1,6 @@
 node_modules/
 dist/
+.claude/worktrees/
 out/
 *.mp4
 !docs/**/*.mp4
