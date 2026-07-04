@@ -4,11 +4,15 @@
  * pipeline produced — scene structure and timeline totals, or the decline.
  */
 import { readFileSync } from "node:fs";
+import { pickGenre, signalsFrom, type Genre } from "../src/genre/rules.js";
 import { parseTranscript } from "../src/parser/index.js";
 import { writeScreenplay } from "../src/screenwriter/heuristic.js";
 
 export interface GoldenSnapshot {
   fixture: string;
+  /** Layer-1 auto-pick (src/genre/rules.ts) — pins the rules table per fixture,
+   * so a rules change shows up as a reviewed golden diff. */
+  autoGenre: Genre;
   totals: {
     turns: number;
     toolCalls: number;
@@ -31,6 +35,7 @@ export function snapshotFixture(fixturePath: string, fixtureName: string): Golde
   const { durationSec: _ignored, ...stableTotals } = timeline.totals;
   return {
     fixture: fixtureName,
+    autoGenre: pickGenre(signalsFrom(timeline)).genre,
     totals: stableTotals,
     result:
       "decline" in output
