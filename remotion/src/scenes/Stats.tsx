@@ -4,7 +4,7 @@ import {
   interpolate,
   useCurrentFrame,
 } from "remotion";
-import type { StatsScene } from "../screenplay/types";
+import type { StatsScene } from "../screenplay";
 import { theme } from "../theme";
 import { Caption } from "./Caption";
 
@@ -118,7 +118,7 @@ export const Stats: React.FC<{
             const p = pop(frame, achievementsStart + i * 15);
             return (
               <div
-                key={a.title}
+                key={a.id}
                 style={{
                   padding: "18px 34px",
                   borderRadius: 999,

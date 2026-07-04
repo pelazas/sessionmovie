@@ -6,23 +6,29 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import type { ActionScene, ToolEvent } from "../screenplay/types";
+import type { ActionScene, ToolEvent } from "../screenplay";
 import { theme } from "../theme";
 import { Caption } from "./Caption";
 
+// Category palette covering the tools real sessions are made of; ok/fail
+// status wins over category so the red/green beats always read.
+const TOOL_COLORS: Record<string, string> = {
+  Read: theme.blue,
+  Glob: theme.blue,
+  Grep: theme.purple,
+  WebFetch: theme.purple,
+  WebSearch: theme.purple,
+  Task: theme.purple,
+  Edit: theme.yellow,
+  Write: theme.yellow,
+  NotebookEdit: theme.yellow,
+  Bash: theme.green,
+  Skill: theme.green,
+};
+
 const toolColor = (event: ToolEvent): string => {
-  if (event.status === "fail") return theme.red;
-  if (event.status === "ok") return theme.green;
-  switch (event.tool) {
-    case "Read":
-      return theme.blue;
-    case "Grep":
-      return theme.purple;
-    case "Edit":
-      return theme.yellow;
-    default:
-      return theme.text;
-  }
+  if (event.ok === false) return theme.red;
+  return TOOL_COLORS[event.tool] ?? theme.text;
 };
 
 const CHIP_GAP = 150;
@@ -35,20 +41,23 @@ export const Action: React.FC<{
   const frame = useCurrentFrame();
   const { height, fps } = useVideoConfig();
 
-  // Chips stream in over the first ~80% of the scene; montage packs them tighter.
+  // Every chip must land within the stream window regardless of event count —
+  // pacing fits the scene's duration budget, never the other way around.
   const streamFrames = durationInFrames * (scene.intensity === "montage" ? 0.75 : 0.9);
-  const interval = Math.max(4, (streamFrames - 10) / scene.events.length);
+  const interval = Math.max(1.5, (streamFrames - 10) / scene.events.length);
+  const slideDur = Math.min(12, Math.max(3, interval));
 
-  const slideDur = Math.min(12, interval);
-  const chipProgress = (i: number) =>
+  // One progress evaluation per chip per frame, shared by scroll and render.
+  const progresses = scene.events.map((_e, i) =>
     interpolate(frame, [10 + i * interval, 10 + i * interval + slideDur], [0, 1], {
       easing: Easing.bezier(0.16, 1, 0.3, 1),
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
-    });
+    }),
+  );
 
   // Every chip that lands pushes the whole stack up by one slot.
-  const scrollUp = scene.events.reduce((acc, _e, i) => acc + chipProgress(i), 0);
+  const scrollUp = progresses.reduce((acc, p) => acc + p, 0);
   const baselineY = height * 0.62;
 
   const captionIn = interpolate(frame, [8, 25], [0, 1], {
@@ -61,7 +70,7 @@ export const Action: React.FC<{
       style={{ backgroundColor: theme.bg, fontFamily: theme.mono, overflow: "hidden" }}
     >
       {scene.events.map((event, i) => {
-        const p = chipProgress(i);
+        const p = progresses[i] ?? 0;
         if (p === 0) return null;
         const y = baselineY + i * CHIP_GAP - scrollUp * CHIP_GAP;
         // Fade chips out as they ride off the top.
@@ -69,9 +78,10 @@ export const Action: React.FC<{
           extrapolateLeft: "clamp",
           extrapolateRight: "clamp",
         });
+        if (fadeOut === 0) return null; // fully scrolled off — stop painting it
         const jitter = (random(`chip-${i}`) - 0.5) * 4; // deterministic tilt, deg
         const color = toolColor(event);
-        const isFail = event.status === "fail";
+        const isFail = event.ok === false;
         return (
           <div
             key={i}
@@ -92,16 +102,29 @@ export const Action: React.FC<{
               fontSize: 40,
             }}
           >
-            <span style={{ color, fontWeight: 700 }}>{event.tool}</span>
-            <span style={{ color: theme.textDim, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {event.detail}
+            <span style={{ color, fontWeight: 700, flexShrink: 0 }}>{event.tool}</span>
+            <span
+              style={{
+                color: theme.textDim,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {event.summary}
             </span>
-            {event.status === "fail" ? (
-              <span style={{ color: theme.red, marginLeft: "auto", opacity: Math.floor(frame / (fps / 6)) % 2 === 0 ? 1 : 0.4 }}>
+            {isFail ? (
+              <span
+                style={{
+                  color: theme.red,
+                  marginLeft: "auto",
+                  opacity: Math.floor(frame / (fps / 6)) % 2 === 0 ? 1 : 0.4,
+                }}
+              >
                 ✗
               </span>
             ) : null}
-            {event.status === "ok" ? (
+            {event.ok === true ? (
               <span style={{ color: theme.green, marginLeft: "auto" }}>✓</span>
             ) : null}
           </div>

@@ -1,17 +1,14 @@
 {
-  "name": "remotion",
-  "version": "1.0.0",
-  "description": "My Remotion video",
-  "repository": {},
-  "license": "UNLICENSED",
+  "name": "@sessionmovie/renderer",
+  "version": "0.0.1",
+  "description": "Remotion renderer for sessionmovie — the classic genre pack.",
+  "license": "MIT",
   "private": true,
   "dependencies": {
     "@remotion/cli": "4.0.484",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "remotion": "4.0.484",
-    "@remotion/tailwind-v4": "4.0.484",
-    "tailwindcss": "4.0.0"
+    "remotion": "4.0.484"
   },
   "devDependencies": {
     "@remotion/eslint-config-flat": "4.0.484",
@@ -23,8 +20,8 @@
   },
   "scripts": {
     "dev": "remotion studio",
+    "render": "remotion render src/index.ts Classic ../out/sample.mp4 --props=../fixtures/screenplays/sample.json",
     "build": "remotion bundle",
-    "upgrade": "remotion upgrade",
     "lint": "eslint src && tsc"
   },
   "sideEffects": [

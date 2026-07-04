@@ -5,7 +5,7 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import type { TitleScene } from "../screenplay/types";
+import type { TitleScene } from "../screenplay";
 import { theme } from "../theme";
 import { Caption } from "./Caption";
 
@@ -13,33 +13,73 @@ export const Title: React.FC<{
   scene: TitleScene;
   caption?: string;
   repo?: string;
-}> = ({ scene, caption, repo }) => {
+  durationInFrames: number;
+}> = ({ scene, caption, repo, durationInFrames }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const panelIn = interpolate(frame, [0, 20], [0, 1], {
+  // Cold open: the most dramatic moment flashes before the title card.
+  const coldOpenFrames = scene.coldOpen ? Math.round(durationInFrames * 0.22) : 0;
+  const cardFrame = frame - coldOpenFrames;
+
+  const panelIn = interpolate(cardFrame, [0, 20], [0, 1], {
     easing: Easing.bezier(0.16, 1, 0.3, 1),
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  // The prompt types itself out — the inciting incident.
+  // The prompt types itself out — speed fits the scene budget: typing always
+  // finishes by ~65% of the card's frames, however long the task is.
   const typingStart = 15;
-  const charsPerFrame = 0.9;
-  const typedChars = Math.max(
-    0,
-    Math.floor((frame - typingStart) * charsPerFrame),
+  const cardFrames = durationInFrames - coldOpenFrames;
+  const charsPerFrame = Math.max(
+    0.9,
+    scene.task.length / Math.max(10, cardFrames * 0.65 - typingStart),
   );
+  const typedChars = Math.max(0, Math.floor((cardFrame - typingStart) * charsPerFrame));
   const typed = scene.task.slice(0, typedChars);
-  const doneTyping = typedChars >= scene.task.length;
   const cursorOn = Math.floor(frame / (fps / 2)) % 2 === 0;
 
-  const captionIn = doneTyping
-    ? interpolate(frame, [typingStart + scene.task.length / charsPerFrame + 5, typingStart + scene.task.length / charsPerFrame + 20], [0, 1], {
-        extrapolateLeft: "clamp",
-        extrapolateRight: "clamp",
-      })
-    : 0;
+  const typingEnd = typingStart + scene.task.length / charsPerFrame;
+  const captionIn = interpolate(cardFrame, [typingEnd + 5, typingEnd + 20], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  if (scene.coldOpen && frame < coldOpenFrames) {
+    const flashIn = interpolate(frame, [0, 6], [0, 1], {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+    });
+    return (
+      <AbsoluteFill
+        style={{
+          backgroundColor: theme.bg,
+          justifyContent: "center",
+          alignItems: "center",
+          fontFamily: theme.mono,
+          padding: 90,
+        }}
+      >
+        <div
+          style={{
+            color: theme.red,
+            fontSize: 72,
+            fontWeight: 700,
+            textAlign: "center",
+            lineHeight: 1.3,
+            opacity: flashIn,
+            transform: `scale(${0.92 + flashIn * 0.08})`,
+          }}
+        >
+          {scene.coldOpen.description}
+        </div>
+        <div style={{ color: theme.textDim, fontSize: 36, marginTop: 48, opacity: flashIn }}>
+          2 hours earlier…
+        </div>
+      </AbsoluteFill>
+    );
+  }
 
   return (
     <AbsoluteFill

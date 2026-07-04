@@ -1,1 +1,7 @@
-@import "tailwindcss";
+/* All classic-pack styling is inline; this file exists for resets only.
+   Keep it dependency-free. */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
