@@ -25,11 +25,10 @@ jobs:
       - name: Validate screenplay fixtures
         run: |
           shopt -s nullglob
-          files=(fixtures/screenplays/*.json)
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "no screenplay fixtures found" >&2
-            exit 1
-          fi
+          # The canonical sample lives in remotion/src (it ships in the npm
+          # package as the Studio default props); fixtures/screenplays holds
+          # any additional dev-only screenplays.
+          files=(remotion/src/screenplay/sample.json fixtures/screenplays/*.json)
           for f in "${files[@]}"; do
             npm run --silent validate -- "$f"
           done
@@ -47,7 +46,7 @@ jobs:
       - name: Fixture leak grep (defense in depth)
         run: |
           # -l: print matching FILES only — never echo the matched content into public CI logs.
-          if grep -rElP 'AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_|glpat-|sk[-_](live|test|ant|proj)[-_]?[A-Za-z0-9_-]{10,}|xox[bpars]-|AIza[0-9A-Za-z_-]{35}|npm_[A-Za-z0-9]{36}|-----BEGIN|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.|/Users/|-Users-(?!dev\b)[A-Za-z0-9._]+|pelazas' fixtures/ --include='*.json' --include='*.jsonl'; then
+          if grep -rElP 'AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_|glpat-|sk[-_](live|test|ant|proj)[-_]?[A-Za-z0-9_-]{10,}|xox[bpars]-|AIza[0-9A-Za-z_-]{35}|npm_[A-Za-z0-9]{36}|-----BEGIN|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.|/Users/|-Users-(?!dev\b)[A-Za-z0-9._]+|pelazas' fixtures/ remotion/src/screenplay/ --include='*.json' --include='*.jsonl'; then
             echo "::error::leak pattern matched in the files listed above — run scripts/scrub-fixtures.ts and inspect locally" >&2
             exit 1
           fi

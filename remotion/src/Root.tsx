@@ -8,7 +8,7 @@ import {
 import { PACKS, makePackComposition } from "./packs";
 import type { Screenplay } from "./screenplay";
 import { totalFrames } from "./timing";
-import sampleJson from "../../fixtures/screenplays/sample.json";
+import sampleJson from "./screenplay/sample.json";
 
 const FPS = 30;
 
