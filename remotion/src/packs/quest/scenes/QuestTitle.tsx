@@ -2,6 +2,8 @@ import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remo
 import { EASE_OUT } from "../../../easing";
 import type { TitleScene } from "../../../screenplay";
 import { titleSchedule } from "../../../timing";
+import { flash, shake } from "../../../effects";
+import { Monster } from "../Monster";
 import { Caption } from "../../Caption";
 import { quest } from "../theme";
 
@@ -24,10 +26,16 @@ export const QuestTitle: React.FC<{
   const cardFrame = frame - coldOpenFrames;
 
   if (scene.coldOpen && frame < coldOpenFrames) {
+    // feat/effects: the cold open is a PICTURE — THE BUG at full HP looming
+    // over the battlefield (entry jolt + red wash), then the smash-cut to
+    // the bounty board.
     const flashIn = interpolate(frame, [0, 6], [0, 1], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
     });
+    const jolt = shake(frame, 0, 10);
+    const redWash = flash(frame, 0, 10);
+    const loom = 1 + Math.sin(frame * 0.1) * 0.015;
     return (
       <AbsoluteFill
         style={{
@@ -35,27 +43,38 @@ export const QuestTitle: React.FC<{
           justifyContent: "center",
           alignItems: "center",
           fontFamily: quest.mono,
-          padding: 90,
+          padding: 80,
+          transform: `translate(${jolt.x}px, ${jolt.y}px)`,
         }}
       >
-        <div style={{ fontSize: 90, opacity: flashIn }}>☠️</div>
+        <div style={{ opacity: flashIn, transform: `scale(${loom})`, transformOrigin: "center bottom" }}>
+          <Monster size={560} hp={1} wobble={Math.sin(frame * 0.12) * 6} />
+        </div>
         <div
           style={{
             color: quest.red,
-            fontSize: 68,
+            fontSize: 58,
             fontWeight: 700,
             textAlign: "center",
             lineHeight: 1.3,
-            marginTop: 32,
+            marginTop: 40,
             opacity: flashIn,
-            transform: `scale(${0.92 + flashIn * 0.08})`,
           }}
         >
           {scene.coldOpen.description}
         </div>
-        <div style={{ color: quest.textDim, fontSize: 36, marginTop: 48, opacity: flashIn }}>
+        <div style={{ color: quest.textDim, fontSize: 36, marginTop: 40, opacity: flashIn }}>
           our story begins…
         </div>
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundColor: quest.red,
+            opacity: redWash * 0.18,
+            pointerEvents: "none",
+          }}
+        />
       </AbsoluteFill>
     );
   }

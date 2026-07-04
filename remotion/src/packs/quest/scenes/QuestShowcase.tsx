@@ -3,6 +3,7 @@ import { CornerMascot } from "../../../characters/CornerMascot";
 import { EASE_BACK_OUT, EASE_OUT } from "../../../easing";
 import type { ShowcaseScene } from "../../../screenplay";
 import { showcaseSchedule } from "../../../timing";
+import { flash, shake } from "../../../effects";
 import { Caption } from "../../Caption";
 import { Monster } from "../Monster";
 import { quest } from "../theme";
@@ -46,11 +47,9 @@ export const QuestShowcase: React.FC<{
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  // On fail the whole battlefield shakes when the hit lands (deterministic decay).
-  const shake =
-    scene.verdict === "fail" && frame >= verdictStart && frame < verdictStart + 14
-      ? Math.sin((frame - verdictStart) * 2.4) * (14 - (frame - verdictStart))
-      : 0;
+  // feat/effects: the boss's hit lands with the shared shake + a red flash.
+  const hit = scene.verdict === "fail" ? shake(frame, verdictStart, 14) : { x: 0, y: 0 };
+  const hitFlash = scene.verdict === "fail" ? flash(frame, verdictStart, 7) : 0;
 
   return (
     <AbsoluteFill
@@ -59,7 +58,7 @@ export const QuestShowcase: React.FC<{
         fontFamily: quest.mono,
         justifyContent: "center",
         padding: 50,
-        transform: `translateX(${shake}px)`,
+        transform: `translate(${hit.x}px, ${hit.y}px)`,
       }}
     >
       {/* the boss looms over the record of what it did */}
@@ -210,6 +209,17 @@ export const QuestShowcase: React.FC<{
           <CornerMascot pose="point" emotion="smug" corner="bottom-left" seed="quest-reveal" />
         )}
       </Sequence>
+      {hitFlash > 0 ? (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundColor: quest.red,
+            opacity: hitFlash * 0.26,
+            pointerEvents: "none",
+          }}
+        />
+      ) : null}
       {caption ? <Caption text={caption} opacity={captionOpacity} /> : null}
     </AbsoluteFill>
   );
