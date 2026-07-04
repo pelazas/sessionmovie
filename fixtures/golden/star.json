@@ -1,5 +1,6 @@
 {
   "fixture": "star.jsonl",
+  "autoGenre": "heist",
   "totals": {
     "turns": 1,
     "toolCalls": 32,

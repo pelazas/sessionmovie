@@ -1,5 +1,6 @@
 {
   "fixture": "feature-build-remotion.jsonl",
+  "autoGenre": "classic",
   "totals": {
     "turns": 2,
     "toolCalls": 80,

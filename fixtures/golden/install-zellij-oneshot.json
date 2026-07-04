@@ -1,5 +1,6 @@
 {
   "fixture": "install-zellij-oneshot.jsonl",
+  "autoGenre": "classic",
   "totals": {
     "turns": 1,
     "toolCalls": 3,
