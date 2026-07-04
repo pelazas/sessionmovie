@@ -38,7 +38,7 @@ The punch-up may color captions with the genre's *attitude* — word choice, rhy
 
 Quest voice done right narrates *real events epically*: "PR #17 arrives — six commits deep, one boss inside." Same energy, zero translation.
 
-A full-costume mode ("translate my session into a medieval saga") may exist someday as an explicit opt-in flag (`--dramatic`) for the meme use-case. It is not the default and is not currently planned.
+There is no full-costume mode. Persona-as-tone is the only persona behavior — recognition is not negotiable.
 
 ## The cold open is a moment, not a riddle
 
