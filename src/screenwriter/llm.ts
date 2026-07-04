@@ -62,6 +62,18 @@ function buildPrompt(digest: string, targetDurationSec: number): string {
     .replaceAll("{{DIGEST}}", digest);
 }
 
+/**
+ * The complete screenwriter prompt for a timeline — single source of truth
+ * for BOTH LLM paths: spawned `claude -p` (this module) and in-session
+ * Claude via `sessionmovie prompt` (the /movie skill). One prompt, no drift.
+ */
+export function buildScreenwriterPrompt(
+  timeline: Timeline,
+  targetDurationSec: number = DEFAULT_TARGET_DURATION_SEC,
+): string {
+  return buildPrompt(digestTimeline(timeline), targetDurationSec);
+}
+
 
 
 
@@ -69,7 +81,9 @@ interface ValidationFailure {
   issues: string;
 }
 
-function validateOutput(json: string): ScreenwriterOutput | ValidationFailure {
+export function validateScreenwriterJson(
+  json: string,
+): ScreenwriterOutput | ValidationFailure {
   let parsed: unknown;
   try {
     parsed = JSON.parse(json);
@@ -132,8 +146,7 @@ export function writeScreenplayLLMDetailed(
     return { output: writeScreenplayHeuristic(timeline), source: "heuristic", attempts: 0 };
   }
 
-  const digest = digestTimeline(timeline);
-  const originalPrompt = buildPrompt(digest, targetDurationSec);
+  const originalPrompt = buildScreenwriterPrompt(timeline, targetDurationSec);
   let prompt = originalPrompt;
   let attempts = 0;
 
@@ -156,7 +169,7 @@ export function writeScreenplayLLMDetailed(
       continue;
     }
 
-    const result = validateOutput(candidate);
+    const result = validateScreenwriterJson(candidate);
     if (!("issues" in result)) {
       return { output: result, source: "llm", attempts };
     }

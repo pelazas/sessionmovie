@@ -64,16 +64,29 @@ function pickAchievements(timeline: Timeline): Achievement[] {
 }
 
 /**
- * Build a screenplay from a timeline, or decline when there is not enough
- * footage for a movie (the quality floor is a feature).
+ * Pre-LLM decline: the structural "not enough footage" checks, shared by the
+ * heuristic screenwriter and `sessionmovie prompt` (the skill path declines
+ * BEFORE the user's session spends effort writing a screenplay).
  */
-export function writeScreenplay(timeline: Timeline): ScreenwriterOutput {
+export function structuralDecline(
+  timeline: Timeline,
+): { decline: true; reason: string } | null {
   if (timeline.turns.length === 0) {
     return { decline: true, reason: "no user prompt found — nothing to make a movie about" };
   }
   if (timeline.toolCalls.length === 0) {
     return { decline: true, reason: "not enough footage: the session used no tools" };
   }
+  return null;
+}
+
+/**
+ * Build a screenplay from a timeline, or decline when there is not enough
+ * footage for a movie (the quality floor is a feature).
+ */
+export function writeScreenplay(timeline: Timeline): ScreenwriterOutput {
+  const declined = structuralDecline(timeline);
+  if (declined) return declined;
 
   const scenes: Array<Scene & { targetSec: number; caption?: string }> = [];
   const biggestDiff = [...timeline.diffs].sort(
