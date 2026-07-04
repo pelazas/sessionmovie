@@ -8,7 +8,7 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { parseTranscript } from "../parser/index.js";
 import { writeScreenplay } from "../screenwriter/heuristic.js";
-import { writeScreenplayLLMDetailed } from "../screenwriter/llm.js";
+import { validateScreenwriterJson, writeScreenplayLLMDetailed } from "../screenwriter/llm.js";
 import { ScreenplaySchema, type Screenplay } from "../screenplay/schema.js";
 import { remotionCliInstalled, runRemotion } from "./workspace.js";
 // voiceover integration (feat/voiceover)
@@ -42,7 +42,7 @@ function movieDurationSec(screenplay: Screenplay): number {
 
 function usage(): never {
   process.stderr.write(
-    "usage: sessionmovie <transcript.jsonl> [--out movie.mp4] [--genre <id>] [--keep-screenplay] [--no-llm] [--voiceover] [--refresh-voices]\n" +
+    "usage: sessionmovie <transcript.jsonl> [--out movie.mp4] [--genre <id>] [--keep-screenplay] [--no-llm] [--voiceover] [--refresh-voices] [--screenplay <file>]\n" +
       "       sessionmovie doctor — check setup (node, remotion, browser, voiceover key)\n" +
       "       sessionmovie prompt <transcript.jsonl> — print the screenwriter prompt (skill path)\n",
   );
@@ -94,6 +94,7 @@ let keepScreenplay = false;
 let useLlm = true;
 let voiceover = false; // voiceover integration (feat/voiceover)
 let refreshVoices = false; // voiceover integration (feat/voiceover)
+let screenplayFile: string | null = null; // skill path (--screenplay)
 for (let i = 0; i < args.length; i++) {
   const arg = args[i];
   if (arg === "--out" || arg === "-o") {
@@ -110,6 +111,10 @@ for (let i = 0; i < args.length; i++) {
   } else if (arg === "--refresh-voices") {
     // voiceover integration (feat/voiceover)
     refreshVoices = true;
+  } else if (arg === "--screenplay") {
+    const next = args[++i];
+    if (!next) usage();
+    screenplayFile = next;
   } else if (arg && !arg.startsWith("-")) {
     if (input) usage();
     input = arg;
@@ -118,6 +123,7 @@ for (let i = 0; i < args.length; i++) {
   }
 }
 if (!input) usage();
+if (screenplayFile && !useLlm) usage(); // contradictory: --screenplay already skips the LLM
 
 // First output within the first second — never hang silently.
 process.stdout.write(`🎬 sessionmovie — reading ${input}\n`);
@@ -137,7 +143,24 @@ const { compositionId: genreComposition, genre } = resolveGenreComposition(timel
 // LLM screenwriter is the default (real narrative, funny captions); it falls
 // back to the heuristic on its own when `claude` is missing or attempts fail.
 let result;
-if (useLlm) {
+if (screenplayFile) {
+  // Skill path: the screenplay was written in-session (or by any external
+  // writer); same validation contract as the LLM stage, then the normal
+  // render boundary below re-validates like always.
+  let screenplayJson = "";
+  try {
+    screenplayJson = readFileSync(resolve(screenplayFile), "utf8");
+  } catch (err) {
+    fail(`cannot read --screenplay file: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  const provided = validateScreenwriterJson(screenplayJson);
+  if ("issues" in provided) {
+    process.stderr.write(`--screenplay rejected by the schema:\n${provided.issues}\n`);
+    process.exit(1);
+  }
+  result = provided;
+  process.stdout.write("   screenwriter: provided via --screenplay\n");
+} else if (useLlm) {
   process.stdout.write("   writing screenplay with claude (~1 min; --no-llm for the fast heuristic)…\n");
   const detailed = writeScreenplayLLMDetailed(timeline);
   result = detailed.output;
