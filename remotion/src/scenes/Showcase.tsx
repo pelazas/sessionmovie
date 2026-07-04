@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { AbsoluteFill, Easing, Sequence, interpolate, useCurrentFrame } from "remotion";
+import { EASE_BACK_OUT, EASE_OUT } from "../easing";
 import { CornerMascot } from "../characters/CornerMascot";
 import type { DiffArtifact, ShowcaseScene, TestRunArtifact } from "../screenplay";
 import { theme } from "../theme";
@@ -77,14 +78,14 @@ export const Showcase: React.FC<{
   const verdict = VERDICT[scene.verdict];
 
   const panelIn = interpolate(frame, [0, 15], [0, 1], {
-    easing: Easing.bezier(0.16, 1, 0.3, 1),
+    easing: EASE_OUT,
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
   const verdictStart = Math.round(durationInFrames * 0.78);
   const verdictIn = interpolate(frame, [verdictStart, verdictStart + 14], [0, 1], {
-    easing: Easing.bezier(0.34, 1.56, 0.64, 1),
+    easing: EASE_BACK_OUT,
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -286,7 +287,7 @@ const TestRunPanel: React.FC<{
   );
   const badgeStart = Math.round(durationInFrames * 0.45);
   const badgeIn = interpolate(frame, [badgeStart, badgeStart + 12], [0, 1], {
-    easing: Easing.bezier(0.34, 1.56, 0.64, 1),
+    easing: EASE_BACK_OUT,
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });

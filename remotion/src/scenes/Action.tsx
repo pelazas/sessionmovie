@@ -1,11 +1,11 @@
 import {
   AbsoluteFill,
-  Easing,
   interpolate,
   random,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import { EASE_OUT } from "../easing";
 import { CornerMascot } from "../characters/CornerMascot";
 import type { ActionScene, ToolEvent } from "../screenplay";
 import { theme } from "../theme";
@@ -51,7 +51,7 @@ export const Action: React.FC<{
   // One progress evaluation per chip per frame, shared by scroll and render.
   const progresses = scene.events.map((_e, i) =>
     interpolate(frame, [10 + i * interval, 10 + i * interval + slideDur], [0, 1], {
-      easing: Easing.bezier(0.16, 1, 0.3, 1),
+      easing: EASE_OUT,
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
     }),

@@ -4,6 +4,7 @@ import {
   interpolate,
   useCurrentFrame,
 } from "remotion";
+import { EASE_BACK_OUT } from "../easing";
 import type { StatsScene } from "../screenplay";
 import { theme } from "../theme";
 import { Caption } from "./Caption";
@@ -19,7 +20,7 @@ const countUp = (frame: number, start: number, value: number): number =>
 
 const pop = (frame: number, start: number): number =>
   interpolate(frame, [start, start + 14], [0, 1], {
-    easing: Easing.bezier(0.34, 1.56, 0.64, 1),
+    easing: EASE_BACK_OUT,
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });

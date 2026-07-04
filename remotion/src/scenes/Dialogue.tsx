@@ -1,4 +1,5 @@
-import { AbsoluteFill, Easing, Sequence, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Sequence, interpolate, useCurrentFrame } from "remotion";
+import { EASE_BACK_OUT, EASE_OUT } from "../easing";
 import { Mascot } from "../characters/Mascot";
 import type { DialogueScene } from "../screenplay";
 import type { Emotion } from "../screenplay";
@@ -42,7 +43,7 @@ export const Dialogue: React.FC<{
     extrapolateRight: "clamp",
   });
   const puppetsIn = interpolate(frame, [0, 12], [0, 1], {
-    easing: Easing.bezier(0.16, 1, 0.3, 1),
+    easing: EASE_OUT,
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -111,7 +112,7 @@ export const Dialogue: React.FC<{
         {scene.lines.map((line, i) => {
           const start = lineStart(i);
           const p = interpolate(frame, [start, start + 12], [0, 1], {
-            easing: Easing.bezier(0.34, 1.56, 0.64, 1),
+            easing: EASE_BACK_OUT,
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
           });
