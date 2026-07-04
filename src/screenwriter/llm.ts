@@ -117,15 +117,24 @@ function validateOutput(json: string): ScreenwriterOutput | ValidationFailure {
   return { issues };
 }
 
-function repairPrompt(previousOutput: string, issues: string): string {
+/**
+ * Each `claude -p` spawn is a FRESH conversation — the model remembers nothing
+ * from the previous attempt. The repair prompt must therefore carry the full
+ * original prompt (contract + digest) again, not just the delta.
+ */
+function repairPrompt(originalPrompt: string, previousOutput: string, issues: string): string {
   return [
-    "Your previous screenplay JSON failed schema validation.",
+    originalPrompt,
+    "",
+    "---",
+    "",
+    "A previous attempt at this task produced the JSON below, which FAILED schema validation.",
+    "",
+    "Previous output:",
+    previousOutput,
     "",
     "Validation issues:",
     issues,
-    "",
-    "Your previous output:",
-    previousOutput,
     "",
     "Fix every issue and output the corrected JSON only — no commentary, no markdown fences.",
     "Remember: scene targetSec values must sum to targetDurationSec, dialogue lines are",
@@ -155,7 +164,8 @@ export function writeScreenplayLLMDetailed(
   }
 
   const digest = digestTimeline(timeline);
-  let prompt = buildPrompt(digest, targetDurationSec);
+  const originalPrompt = buildPrompt(digest, targetDurationSec);
+  let prompt = originalPrompt;
   let attempts = 0;
 
   while (attempts < maxAttempts) {
@@ -173,7 +183,7 @@ export function writeScreenplayLLMDetailed(
       candidate = extractJson(raw);
     } catch {
       log(`⚠️  attempt ${attempts}/${maxAttempts}: model output contained no JSON, retrying`);
-      prompt = repairPrompt(raw.slice(0, 2000), "output contained no JSON object at all");
+      prompt = repairPrompt(originalPrompt, raw.slice(0, 2000), "output contained no JSON object at all");
       continue;
     }
 
@@ -182,7 +192,7 @@ export function writeScreenplayLLMDetailed(
       return { output: result, source: "llm", attempts };
     }
     log(`⚠️  attempt ${attempts}/${maxAttempts}: screenplay failed validation, repairing`);
-    prompt = repairPrompt(candidate, result.issues);
+    prompt = repairPrompt(originalPrompt, candidate, result.issues);
   }
 
   log(
