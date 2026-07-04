@@ -33,3 +33,13 @@ Pre-v1, docs-first. The design in `docs/` is the source of truth until code exis
 
 - TypeScript throughout. CLI is the product (`npx sessionmovie`); the Claude Code skill is a thin adapter over it.
 - Prefer boring, explicit code in the parser (it eats untrusted, shifting input); save cleverness for compositions.
+
+## Orchestration workflow (subagents)
+
+Two project subagents live in `.claude/agents/`. Split work by whether the thinking is already done:
+
+- **`deep-reasoner`** (opus, read-only) — dispatch *before* touching code for reasoning-heavy work: implementation plans, architecture decisions, debugging complex or intermittent issues, algorithmic design. It returns a conclusion and a numbered plan; it never edits.
+- **`executor`** (sonnet, write access) — dispatch for mechanical, well-specified work: boilerplate, tests following an existing pattern, formatting, renames, simple edits. Give it exact instructions and the pattern to copy; it escalates ambiguity instead of improvising design decisions.
+- Typical flow for nontrivial features: `deep-reasoner` plans → you review the plan against the hard constraints above → hand discrete steps to `executor` (in parallel when independent) → you verify the integrated result.
+- Don't delegate what doesn't pay for the handoff: one-line edits and quick lookups you do yourself.
+- Anything touching a hard constraint (redaction paths, screenplay IR schema, determinism) you verify personally — never accept a subagent's report on those unchecked.

@@ -8,3 +8,4 @@ remotion/public/voiceover-cache/
 .DS_Store
 .env
 .env.*
+.claude/scheduled_tasks.lock
