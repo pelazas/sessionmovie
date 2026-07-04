@@ -5,11 +5,11 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import { EASE_OUT } from "../easing";
-import { CornerMascot } from "../characters/CornerMascot";
-import type { ActionScene, ToolEvent } from "../screenplay";
-import { theme } from "../theme";
-import { Caption } from "./Caption";
+import { EASE_OUT } from "../../../easing";
+import { CornerMascot } from "../../../characters/CornerMascot";
+import type { ActionScene, ToolEvent } from "../../../screenplay";
+import { theme } from "../../../theme";
+import { Caption } from "../../Caption";
 
 // Category palette covering the tools real sessions are made of; ok/fail
 // status wins over category so the red/green beats always read.

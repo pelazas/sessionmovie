@@ -1,6 +1,6 @@
 import { Audio, Sequence, interpolate, staticFile, useVideoConfig } from "remotion";
 import type { Screenplay } from "../screenplay";
-import { sceneFrames } from "../Classic"; // voiceover integration (feat/voiceover)
+import { sceneFrames } from "../timing"; // voiceover integration (feat/voiceover)
 import { BEATS } from "./beats";
 import { collectCues, sceneCutFrames, type SfxKind } from "./events";
 

@@ -1,10 +1,10 @@
 import { useMemo } from "react";
 import { AbsoluteFill, Easing, Sequence, interpolate, useCurrentFrame } from "remotion";
-import { EASE_BACK_OUT, EASE_OUT } from "../easing";
-import { CornerMascot } from "../characters/CornerMascot";
-import type { DiffArtifact, ShowcaseScene, TestRunArtifact } from "../screenplay";
-import { theme } from "../theme";
-import { Caption } from "./Caption";
+import { EASE_BACK_OUT, EASE_OUT } from "../../../easing";
+import { CornerMascot } from "../../../characters/CornerMascot";
+import type { DiffArtifact, ShowcaseScene, TestRunArtifact } from "../../../screenplay";
+import { theme } from "../../../theme";
+import { Caption } from "../../Caption";
 
 const LINE_HEIGHT = 84;
 

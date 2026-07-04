@@ -1,10 +1,10 @@
 import { AbsoluteFill, Sequence, interpolate, useCurrentFrame } from "remotion";
-import { EASE_BACK_OUT, EASE_OUT } from "../easing";
-import { Mascot } from "../characters/Mascot";
-import type { DialogueScene } from "../screenplay";
-import type { Emotion } from "../screenplay";
-import { theme } from "../theme";
-import { Caption } from "./Caption";
+import { EASE_BACK_OUT, EASE_OUT } from "../../../easing";
+import { Mascot } from "../../../characters/Mascot";
+import type { DialogueScene } from "../../../screenplay";
+import type { Emotion } from "../../../screenplay";
+import { theme } from "../../../theme";
+import { Caption } from "../../Caption";
 
 // The characters' main stage: both puppets stand at the bottom (user left/
 // blue, claude right/purple) while speech bubbles pop in above them. The

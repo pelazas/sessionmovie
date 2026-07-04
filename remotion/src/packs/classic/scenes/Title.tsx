@@ -4,10 +4,10 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import { EASE_OUT } from "../easing";
-import type { TitleScene } from "../screenplay";
-import { theme } from "../theme";
-import { Caption } from "./Caption";
+import { EASE_OUT } from "../../../easing";
+import type { TitleScene } from "../../../screenplay";
+import { theme } from "../../../theme";
+import { Caption } from "../../Caption";
 
 export const Title: React.FC<{
   scene: TitleScene;
