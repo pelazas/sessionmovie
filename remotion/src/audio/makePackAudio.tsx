@@ -35,7 +35,8 @@ export interface PackAudioSpec {
  * voiceover cue playback. Everything is scheduled with pure frame math
  * derived from the screenplay — no randomness, no clocks (CLAUDE.md
  * determinism rules). Extracted verbatim from ClassicAudio at the second
- * consumer (quest's own music bed); packs differ only in the spec.
+ * pack's own music bed (since removed — docs/genre-packs.md "Extraction
+ * status"); packs differ only in the spec.
  */
 export const makePackAudio = ({
   track,

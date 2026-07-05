@@ -23,17 +23,13 @@ import type { CharacterAlignment, VoiceoverCue, VoiceoverManifest } from "./type
 export type { VoiceoverCue, VoiceoverManifest } from "./types.js";
 
 // ── per-genre voices (docs/audio.md: voice choice is a genre property) ──────
-/** Daniel — deep, authoritative broadcast delivery; the quest narrator. */
-export const QUEST_VOICE_ID = "onwK4e9ZLuTAKqWW03F9";
-
 /**
- * Stock-voice defaults per genre. Only classic (George) and quest (Daniel)
- * are curated so far; the rest inherit classic's narrator until their packs
- * ship. All ElevenLabs premade voices — no clones (docs/audio.md ethics).
+ * Stock-voice defaults per genre. Only classic (George) is curated so far;
+ * the rest inherit classic's narrator until their packs ship. All ElevenLabs
+ * premade voices — no clones (docs/audio.md ethics).
  */
 export const VOICE_BY_GENRE: Record<Genre, string> = {
   classic: DEFAULT_VOICE_ID,
-  quest: QUEST_VOICE_ID,
   horror: DEFAULT_VOICE_ID,
   heist: DEFAULT_VOICE_ID,
   "nature-doc": DEFAULT_VOICE_ID,
@@ -41,7 +37,7 @@ export const VOICE_BY_GENRE: Record<Genre, string> = {
 
 /**
  * Voice for a genre. Precedence: ELEVENLABS_VOICE_ID (the existing global
- * force-this-voice knob) → ELEVENLABS_VOICE_<GENRE> (e.g. …_QUEST,
+ * force-this-voice knob) → ELEVENLABS_VOICE_<GENRE> (e.g. …_HORROR,
  * …_NATURE_DOC) → the map above.
  */
 export function voiceForGenre(genre: Genre, env: NodeJS.ProcessEnv = process.env): string {

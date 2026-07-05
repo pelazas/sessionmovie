@@ -5,12 +5,13 @@
  * suggestion sidecar is a later Layer 2 addition.
  *
  * The table is forward-looking: it names genres that have not shipped yet
- * (quest, horror, heist, nature-doc). compositions.ts maps every pick onto
- * a shipped composition, falling through to classic explicitly.
+ * (horror, heist, nature-doc). compositions.ts maps every pick onto a
+ * shipped composition, falling through to classic explicitly. Dormant seam:
+ * nothing in the live CLI pipeline calls pickGenre anymore (docs/genre-packs.md).
  */
 import type { Timeline } from "../parser/types.js";
 
-export const GENRES = ["classic", "quest", "horror", "heist", "nature-doc"] as const;
+export const GENRES = ["classic", "horror", "heist", "nature-doc"] as const;
 export type Genre = (typeof GENRES)[number];
 
 export function isGenre(value: string): value is Genre {
@@ -43,7 +44,7 @@ const READ_TOOLS = new Set(["Read", "Grep", "Glob"]);
 const EDIT_TOOLS = new Set(["Edit", "Write", "NotebookEdit"]);
 
 /** Rule thresholds — tuned against fixtures/golden (goldens pin every pick). */
-const QUEST_MIN_FAILURES = 3;
+const MANY_FAILURES_THRESHOLD = 3;
 const NATURE_DOC_MIN_READS = 10;
 const NATURE_DOC_READ_EDIT_RATIO = 4;
 const NATURE_DOC_MIN_DURATION_SEC = 600;
@@ -65,13 +66,9 @@ export function signalsFrom(timeline: Timeline): GenreSignals {
 export function pickGenre(signals: GenreSignals): GenrePick {
   const { failedCommands, finalCommandGreen, filesTouched, commands } = signals;
 
-  if (failedCommands >= QUEST_MIN_FAILURES && finalCommandGreen === true) {
-    return {
-      genre: "quest",
-      reason: `${failedCommands} failed commands, final run green`,
-    };
-  }
-  if (failedCommands >= QUEST_MIN_FAILURES) {
+  // finalCommandGreen !== true (not just === false) also catches null — no
+  // commands ran at all — under the same "didn't demonstrably go green" umbrella.
+  if (failedCommands >= MANY_FAILURES_THRESHOLD && finalCommandGreen !== true) {
     return {
       genre: "horror",
       reason: `${failedCommands} failed commands, never went green`,

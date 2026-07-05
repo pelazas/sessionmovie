@@ -1,5 +1,6 @@
 import { AbsoluteFill, Series, useCurrentFrame, useVideoConfig } from "remotion";
 import type { FactTile } from "../../../src/facts/types";
+import type { UserIdentity } from "../../../src/identity/types";
 import type { VoiceoverManifest } from "../../../src/voiceover/types";
 import { SceneTimeContext } from "./ClockChip";
 import { FactTilesContext } from "./FactTiles";
@@ -40,11 +41,10 @@ export const makePackComposition = (pack: GenrePack): React.FC<Screenplay> => {
   };
 
   // ── scene-transitions block (feat/effects) ────────────────────────────────
-  // A 4-frame flash/whip at every scene handoff, per-pack flavored: classic
-  // is a cold shutter, quest a torch flicker. Cut FRAMES come from the shared
-  // sceneCutFrames (beat-aligned upstream by the CLI quantizer) — no timing
-  // logic of our own. The whoosh SFX cue in audio/events.ts fires at the
-  // same frames.
+  // A 4-frame flash/whip at every scene handoff: a cold shutter. Cut FRAMES
+  // come from the shared sceneCutFrames (beat-aligned upstream by the CLI
+  // quantizer) — no timing logic of our own. The whoosh SFX cue in
+  // audio/events.ts fires at the same frames.
   const CutTransitions: React.FC<{ screenplay: Screenplay }> = ({ screenplay }) => {
     const frame = useCurrentFrame();
     const { fps } = useVideoConfig();
@@ -55,14 +55,11 @@ export const makePackComposition = (pack: GenrePack): React.FC<Screenplay> => {
       opacity = Math.max(opacity, flash(frame, cut, 4));
     }
     if (opacity === 0) return null;
-    const torch = pack.id === "quest";
-    // Torch flicker: deterministic frame-sine shimmer; shutter: clean decay.
-    const flicker = torch ? 0.75 + 0.25 * Math.sin(frame * 2.1) : 1;
     return (
       <AbsoluteFill
         style={{
-          backgroundColor: torch ? "#ff8c42" : "#dfe7f0",
-          opacity: opacity * (torch ? 0.8 : 0.85) * flicker,
+          backgroundColor: "#dfe7f0",
+          opacity: opacity * 0.85,
           pointerEvents: "none",
         }}
       />
@@ -75,6 +72,9 @@ export const makePackComposition = (pack: GenrePack): React.FC<Screenplay> => {
       voiceover?: VoiceoverManifest;
       sceneTimes?: (string | null)[];
       factTiles?: FactTile[];
+      // identity sidecar (rewrite/identity, PR-F): consumed by the character
+      // rig once it lands; not read by any scene component yet.
+      identity?: UserIdentity;
     }
   > = (screenplay) => {
     const { fps } = useVideoConfig();
