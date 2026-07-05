@@ -9,7 +9,7 @@ Policy (binding, same as genre-packs.md):
 - **CC0 only, verified.** "Royalty-free" and "free for YouTube" are not licenses. Check the actual license page of every asset (Pixabay license terms read carefully, Freesound filtered to CC0, FreePD). Attribution-required (CC-BY) is rejected even though we'd happily credit — because *downstream users* of this repo inherit the obligation and won't know.
 - **Every asset lands in `CREDITS.md` in the same PR.** Source URL + license. A PR with an uncredited asset is rejected regardless of quality.
 - **Beat grid is data.** Each track ships with a precomputed beat-timestamp array (`remotion/src/audio/beatData.ts`, re-exported by `beats.ts`); cuts and artifact reveals snap to it. Computed offline, committed as numbers with a comment on how.
-- **Generic CC0 set, not genre-flavored.** With genre packs gone (docs/genre-packs.md), the bundled bed is one neutral energy kit rather than a per-genre soundtrack — the fantasy-flavored battle track that used to back the now-deleted second pack is gone from both `remotion/public/audio/` and `CREDITS.md`; `music-cyber-runner.ogg` is the only music bed.
+- **Generic CC0 set, not genre-flavored.** With genre packs gone (docs/genre-packs.md), the bundled bed is one neutral energy kit rather than a per-genre soundtrack — the fantasy-flavored battle track that used to back the now-deleted second pack is gone from both `remotion/public/audio/` and `CREDITS.md`; `music-lofi-chill.mp3` (a calmer HoliznaCC0 lo-fi bed, CC0 1.0) is the only music bed, and all bundled SFX are now mp3 rather than ogg.
 - **Ducking:** music volume dips a constant −6dB under voiceover, via frame-math volume automation — no Web Audio, no nondeterminism.
 
 ## Voiceover — ElevenLabs (planned, not v1)

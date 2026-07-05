@@ -6,14 +6,21 @@ import type { SfxKind } from "./events";
 
 /** The v1 SFX set — shared by every pack until one brings its own. */
 export const SHARED_SFX: Record<SfxKind, string> = {
-  thock: "audio/sfx-key-thock.ogg",
-  tick: "audio/sfx-chip-tick.ogg",
-  fail: "audio/sfx-fail-thud.ogg",
-  pass: "audio/sfx-pass-chime.ogg",
+  thock: "audio/sfx-key-thock.mp3",
+  tick: "audio/sfx-chip-tick.mp3",
+  fail: "audio/sfx-fail-thud.mp3",
+  pass: "audio/sfx-pass-chime.mp3",
   // feat/effects (all CC0, CREDITS.md)
-  whoosh: "audio/sfx-transition-whoosh.ogg",
-  drone: "audio/sfx-tension-drone.ogg",
-  stinger: "audio/sfx-end-stinger.ogg",
+  whoosh: "audio/sfx-transition-whoosh.mp3",
+  // PR-I deleted sfx-tension-drone's audio file (the no-genre rewrite drops
+  // the drone event), but `SfxKind` still has "drone" as a member and this
+  // is a full Record<SfxKind, string> — PR-E owns events.ts/SfxKind and
+  // removes this entry when it drops "drone" from the type. Until then this
+  // points at an existing asset (reused, not a new file) so the map stays
+  // type-correct; the drone cue itself is scheduled to become unreachable
+  // dead code in the same PR, not fixed here.
+  drone: "audio/sfx-fail-thud.mp3",
+  stinger: "audio/sfx-end-stinger.mp3",
 };
 
 export const SHARED_SFX_VOLUMES: Record<SfxKind, number> = {
@@ -27,9 +34,9 @@ export const SHARED_SFX_VOLUMES: Record<SfxKind, number> = {
   stinger: 0.75,
 };
 
-/** The classic pack's soundtrack: the cyber-runner bed over the shared SFX. */
+/** The classic pack's soundtrack: the lofi-chill bed over the shared SFX. */
 export const ClassicAudio = makePackAudio({
-  track: "audio/music-cyber-runner.ogg",
+  track: "audio/music-lofi-chill.mp3",
   beats: BEATS,
   sfx: SHARED_SFX,
   sfxVolumes: SHARED_SFX_VOLUMES,
