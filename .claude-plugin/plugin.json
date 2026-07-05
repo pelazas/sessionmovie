@@ -1,7 +1,7 @@
 {
   "name": "sessionmovie",
   "description": "Turn a Claude Code session into a 45-60s rendered movie — /movie films the current session.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "author": { "name": "Carlos Pelazas" },
   "homepage": "https://github.com/pelazas/sessionmovie",
   "repository": "https://github.com/pelazas/sessionmovie",

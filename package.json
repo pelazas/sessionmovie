@@ -1,6 +1,6 @@
 {
   "name": "sessionmovie",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "Turn a Claude Code session transcript into a 45-60s rendered movie.",
   "keywords": [
