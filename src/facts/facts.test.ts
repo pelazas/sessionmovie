@@ -141,11 +141,11 @@ describe("factsDigestLine", () => {
 
 describe("sceneTimesFor", () => {
   const screenplay: Screenplay = {
-    version: 1,
+    version: 2,
     sessionMeta: {},
     targetDurationSec: 50,
     scenes: [
-      { type: "title", task: "fix the login", targetSec: 5 },
+      { type: "title", headline: "fix the login", task: "fix the login", targetSec: 5 },
       {
         type: "dialogue",
         lines: [{ speaker: "user", text: "broken again", emotion: "defeated" }],
@@ -153,21 +153,16 @@ describe("sceneTimesFor", () => {
       },
       {
         type: "action",
-        events: [{ tool: "Bash", summary: "Bash: npm test" }],
-        intensity: "montage",
+        artifact: { kind: "command", command: "npm test", exitCode: 1 },
         targetSec: 10,
       },
       {
         type: "showcase",
-        artifact: { kind: "diff", file: "auth.ts", added: 40, removed: 10 },
-        verdict: "pass",
+        artifact: { kind: "edit", file: "auth.ts", added: 40, removed: 10 },
         targetSec: 10,
       },
       {
         type: "stats",
-        compressed: { realDuration: "1h 46m", movieDuration: "50s" },
-        counts: { files: 1, added: 40, removed: 10, tools: 4 },
-        achievements: [],
         targetSec: 15,
       },
     ],
@@ -178,7 +173,7 @@ describe("sceneTimesFor", () => {
     assert.equal(times.length, 5);
     assert.equal(times[0], formatClock("2026-07-04T07:23:56.861Z")); // title = start
     assert.equal(times[1], null); // dialogue never chips
-    assert.equal(times[2], formatClock("2026-07-04T07:23:56.861Z")); // exact summary match, turn 0
+    assert.equal(times[2], formatClock("2026-07-04T07:23:56.861Z")); // command prefix match, turn 0
     assert.equal(times[3], formatClock("2026-07-04T07:23:56.861Z")); // diff basename match, turn 0
     assert.equal(times[4], formatClock("2026-07-04T09:10:00.000Z")); // stats = end
   });
@@ -186,7 +181,7 @@ describe("sceneTimesFor", () => {
   it("returns null rather than guessing when nothing matches", () => {
     const t = baseTimeline();
     t.diffs = [];
-    t.toolCalls = [];
+    t.commands = [];
     const times = sceneTimesFor(screenplay, t);
     assert.equal(times[2], null);
     assert.equal(times[3], null);
