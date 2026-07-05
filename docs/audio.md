@@ -23,31 +23,41 @@ Design decisions locked now so the build is mechanical later.
 - `ELEVENLABS_VOICE_USER` and `ELEVENLABS_VOICE_CLAUDE` pick a voice per speaker; both default to the **same one narrator voice** when unset, so voiceover works out of the box with zero configuration and only sounds like two distinct people once the user opts into that.
 - No genre persona layer — dialogue text is documentary (docs/v1-storychange.md) and voiceover reads it exactly as written, same as captions.
 
-### Where it sits in the pipeline
+### The pipeline (ratified)
+
+Today, scene durations are locked before anything narrates them. The ratified design reorders that — durations are set FROM the measured audio, not the other way around:
 
 ```
-screenplay (dialogue lines, already condensed + redacted)
-  → TTS step in the CLI (pre-render): ElevenLabs API → mp3 per dialogue line
-  → cache by hash(text + voiceId + settings)
-  → Remotion <Audio> sequences, timed per scene
+parse → screenwriter → zod validate
+  → synth each dialogue line (ElevenLabs; per-speaker ELEVENLABS_VOICE_USER/
+    ELEVENLABS_VOICE_CLAUDE, both defaulting to one narrator voice; content-
+    addressed cache per line)
+  → resize each dialogue scene:
+      targetSec = clamp(Σ lineAudioSec + 0.35s × (n−1) inter-line gaps
+                         + 0.75s lead + 0.75s tail, 3, 9)
+  → renormalize every non-dialogue scene proportionally, so the movie still
+    hits targetDurationSec, with floors: action >= 5s, title >= 3s,
+    showcase >= 4s, stats >= 4s
+  → assert the duration invariant (same superRefine check the schema always ran)
+  → quantize to the beat grid
+  → render
 ```
 
 **Hard rule: no network inside compositions.** TTS runs as an explicit CLI step before `remotion render`; the composition only ever consumes local audio files. This preserves render determinism and keeps Remotion Lambda viable.
 
+The 0.35s inter-line gap is a tunable, not a magic constant.
+
+**Overflow.** A dialogue scene whose measured audio would need more than 9s drops the trailing line's cue rather than let the scene run long — one line loses its voiceover (its caption still shows, silently). A single line that alone exceeds 9s of audio just clamps to the 9s ceiling and logs a warning; it still gets voiced, truncated.
+
+**Synth failure.** Any TTS failure — network, quota, bad key mid-run — falls back for the **whole movie**: every scene reverts to the screenwriter's original durations, voiceover is off entirely, and the CLI prints a loud warning. Never a half-narrated movie with some scenes on VO timing and others on guessed timing; that would look like a bug, not a feature.
+
+**What's off-limits here:** dialogue text still never has numerals rewritten or checked by code — this pipeline consumes whatever condensed line the screenwriter wrote (heuristic or LLM), verbatim, same as always (docs/v1-storychange.md). The one place numerals get discouraged is the LLM screenwriter's *prompt*: numbers make ElevenLabs TTS read roughly 2.6x slower (digit expansion — "47" becomes "forty-seven"), which eats into the 90-char/9s budget for no narrative gain, and numbers belong in the stats scene's fact tiles anyway. This is prompt guidance, not a schema rule or a heuristic-screenwriter check.
+
+Non-dialogue captions (title/action/showcase/stats) are always text-only — never narrated, never queued for TTS, regardless of this pipeline.
+
 ### Determinism & caching
 
 TTS output is nondeterministic per call, which breaks "same screenplay → bit-identical movie". Mitigation: content-addressed cache (`out/.tts-cache/<sha256>.mp3` keyed on text + voiceId + model + settings). Same screenplay re-renders reuse cached audio → deterministic in practice; regenerating the cache is an explicit `--refresh-voices` action.
-
-### Design-pending spike: pipeline reorder for timing
-
-Today, scene durations are locked before anything narrates them — voiceover has to fit whatever `targetSec` the screenwriter already picked. The better order, not yet built:
-
-1. Write the screenplay (durations are provisional).
-2. Synthesize each dialogue line's TTS **before** the duration lock.
-3. Set that dialogue scene's `targetSec` to the measured VO duration + 1.5s, clamped to 3–9s.
-4. Absorb the delta (versus the screenwriter's original guess) into that dialogue scene's **paired action scene**, so the movie's total stays on budget instead of drifting.
-
-This reorders "TTS then duration lock" instead of today's "duration lock then hope TTS fits," and needs a spike before it's real: how the pairing is tracked through the pipeline, and what happens when the delta would push the paired action scene below a sane floor. Filed as a spike, not a commitment, until that's answered.
 
 ### Voices & ethics
 
@@ -61,6 +71,5 @@ This reorders "TTS then duration lock" instead of today's "duration lock then ho
 
 ### Build order (when we come back to this)
 
-1. Prototype behind `--voiceover`: narrate dialogue lines, one stock voice, cache in place, duration lock unchanged (VO clamped to fit rather than driving it).
-2. The pipeline reorder above (TTS before duration lock), once the spike questions are answered.
-3. Per-speaker voices (`ELEVENLABS_VOICE_USER`/`ELEVENLABS_VOICE_CLAUDE`) + ducking polish + Lambda-compatible cache upload.
+1. Prototype behind `--voiceover`: narrate dialogue lines, one stock voice, cache in place, the ratified duration-resize pipeline above.
+2. Per-speaker voices (`ELEVENLABS_VOICE_USER`/`ELEVENLABS_VOICE_CLAUDE`) + ducking polish + Lambda-compatible cache upload.

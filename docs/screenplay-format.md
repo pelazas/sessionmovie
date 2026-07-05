@@ -6,7 +6,8 @@ The screenplay is the genre-neutral JSON intermediate representation between the
 
 - **Genre-neutral.** `classic` is the only shipped pack and the permanent fallback (docs/genre-packs.md); nothing genre-specific belongs in the IR.
 - **Closed scene vocabulary.** Five types. Adding one multiplies work for every genre pack.
-- **Bounded text.** Dialogue lines are condensed, never verbatim — max ~90 chars/line, enforced in schema, and the whole screenplay has a hard budget of at most 6 dialogue lines total (`MAX_DIALOGUE_LINES`). Walls of text must be structurally impossible.
+- **Bounded text.** Dialogue lines are condensed, never verbatim — max ~90 chars/line (`MAX_DIALOGUE_CHARS`), each dialogue scene's combined spoken chars capped at 90 too (`MAX_SCENE_DIALOGUE_CHARS`), and the whole screenplay has a hard budget of at most 6 dialogue lines total (`MAX_DIALOGUE_LINES`) — all three enforced in schema. Walls of text must be structurally impossible. The per-scene cap exists for voiceover (docs/audio.md): narration is measured at ~12.7 chars/sec, so 90 spoken chars is what fits the 9s scene-duration clamp — the schema guarantees a dialogue scene can never be handed more text than its voice can read in the time it's allowed to run.
+- **Every artifact string is redacted before it enters the IR.** `file`, `command`, `summary`, `files[]`, `tasks[]`, and `snippet` on an `ActionArtifact` are all transcript-sourced and all pass through the redaction layer (docs/security-and-privacy.md) upstream of the screenplay — not just the diff snippet.
 - **Bounded emotion enum.** Emotions map 1:1 to character sprite poses; the enum bounds the art budget.
 - **Duration budget.** The screenwriter receives a total target (45–60s) and assigns per-scene targets; validation rejects screenplays that don't sum within tolerance.
 - **One artifact per action/showcase scene.** `action` and `showcase` scenes both carry a single `ActionArtifact` — the renderer never receives a list to summarize, and the screenwriter never invents a fact from nothing.
@@ -19,9 +20,11 @@ type Emotion =
   | 'neutral' | 'confident' | 'confused' | 'panicking'
   | 'smug' | 'defeated' | 'celebrating'
 
+// Every field below (file, command, summary, files, tasks, snippet) is
+// transcript-sourced and redacted BEFORE it enters the IR.
 type ActionArtifact =
   | { kind: 'edit'; file: string; added: number; removed: number
-      snippet?: string                  // redacted BEFORE it enters the IR
+      snippet?: string
       focus?: LineRange }                // the lines to enlarge in slow-mo
   | { kind: 'command'; command: string; exitCode: number; summary?: string }
   | { kind: 'create'; files: string[] }  // 1..12 — heuristic screenwriter never emits this
@@ -32,7 +35,7 @@ type Scene =
       headline: string                  // one line, <= 80 chars
       task: string }                    // the user's mission, condensed, <= 120 chars
   | { type: 'dialogue'
-      lines: Array<{
+      lines: Array<{                    // combined text across all lines <= 90 chars (MAX_SCENE_DIALOGUE_CHARS)
         speaker: 'user' | 'claude'
         text: string                    // condensed, <= 90 chars, documentary (never persona-rewritten)
         emotion: Emotion

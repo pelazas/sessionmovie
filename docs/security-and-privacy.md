@@ -8,7 +8,7 @@ Therefore: **no string reaches a rendered frame without passing the redaction la
 
 ## The redaction layer
 
-Applied to every piece of displayable content (messages, tool inputs/outputs, diffs, command output, file paths):
+Applied to every piece of displayable content (messages, tool inputs/outputs, diffs, command output, file paths) — including, explicitly, every transcript-sourced field on a screenplay `ActionArtifact` (docs/screenplay-format.md): `file`, `command`, `summary`, `files[]`, `tasks[]`, and `snippet` are all redacted before they enter the IR, not just the diff snippet:
 
 1. **Secret-pattern regexes** — known key shapes (AWS `AKIA…`, GitHub `ghp_`/`gho_`, Slack, Stripe, JWTs, private key blocks, connection strings, `Authorization:` headers…). Start from trufflehog/gitleaks pattern sets.
 2. **Entropy detection** — high-entropy tokens above a length threshold that match no known pattern get masked as probable secrets.
