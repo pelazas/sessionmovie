@@ -6,7 +6,7 @@ import { SceneTimeContext } from "./ClockChip";
 import { FactTilesContext } from "./FactTiles";
 import { sceneLocalCue } from "./voiceoverSync";
 import type { Scene, Screenplay } from "../screenplay";
-import { flash } from "../effects";
+import { flash } from "../motion";
 import { sceneCutFrames, sceneFrames } from "../timing";
 import { VoiceoverCueContext, type GenrePack } from "./types";
 
