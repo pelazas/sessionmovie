@@ -1,4 +1,4 @@
-import type { DialogueScene, Scene, Screenplay, TitleScene } from "./screenplay";
+import type { DialogueScene, Screenplay, TitleScene } from "./screenplay";
 // sceneFrames moved to src/voiceover/sync-core.ts (CLI-side) so the CLI never
 // imports a renderer module — re-exported here so every renderer-side
 // consumer that imports it from "./timing"/"../timing"/etc. keeps working.
@@ -171,25 +171,3 @@ export const statsSchedule = (durationInFrames: number): StatsSchedule => ({
   watermarkIn: Math.round(durationInFrames * 0.78),
   captionIn: Math.round(durationInFrames * 0.85),
 });
-
-// ── captions (voiceover alignment) ───────────────────────────────────────────
-
-/**
- * Scene-local frame where the scene's caption starts fading in — voiceover
- * cues align narration start to this instead of the scene's first frame
- * (issue #9 note from the PR #14 review).
- */
-export const captionInFrame = (scene: Scene, durationInFrames: number): number => {
-  switch (scene.type) {
-    case "title":
-      return Math.round(titleSchedule(scene, durationInFrames).captionIn);
-    case "action":
-      return artifactSchedule(durationInFrames).captionIn;
-    case "showcase":
-      return artifactSchedule(durationInFrames).captionIn;
-    case "dialogue":
-      return Math.round(dialogueSchedule(scene, durationInFrames).captionIn);
-    case "stats":
-      return statsSchedule(durationInFrames).captionIn;
-  }
-};
