@@ -30,7 +30,7 @@
         "removed": 4,
         "snippet": " export function verifySession(token: string) {\n-  const payload = jwt.verify(token, SECRET);\n-  return payload;\n+  const payload = jwt.verify(token, SECRET, {\n+    clockTolerance: 5,\n+  });\n+  if (isExpiringSoon(payload)) {\n+    return refreshSession(payload);\n+  }\n+  return payload;\n }"
       },
-      "targetSec": 12,
+      "targetSec": 9,
       "caption": "turn 4: this is fine."
     },
     {
@@ -41,7 +41,7 @@
         "exitCode": 1,
         "summary": "17 failing — TokenExpiredError: jwt expired"
       },
-      "targetSec": 12,
+      "targetSec": 9,
       "caption": "the wall"
     },
     {
@@ -53,8 +53,17 @@
         "removed": 118,
         "focus": { "start": 5, "end": 7 }
       },
-      "targetSec": 9,
+      "targetSec": 7,
       "caption": "turn 12 — the bug reveals itself"
+    },
+    {
+      "type": "action",
+      "artifact": {
+        "kind": "subagents",
+        "tasks": ["audit every call site", "check test coverage"]
+      },
+      "targetSec": 8,
+      "caption": "turn 15: sending in reinforcements"
     },
     {
       "type": "stats",
