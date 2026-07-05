@@ -25,6 +25,9 @@ export const MAX_DIALOGUE_CHARS = 90;
 /** Dialogue line budget across the whole screenplay. */
 export const MAX_DIALOGUE_LINES = 6;
 
+/** Combined spoken chars per dialogue scene — guarantees voiceover fits the 9s scene clamp (docs/audio.md). */
+export const MAX_SCENE_DIALOGUE_CHARS = 90;
+
 export const EmotionSchema = z.enum([
   "neutral",
   "confident",
@@ -69,6 +72,7 @@ export const SubagentsArtifactSchema = z.object({
   tasks: z.array(z.string().min(1).max(60)).min(1).max(8),
 });
 
+/** Every field here (file, command, summary, files, tasks, snippet) is redacted BEFORE it enters the IR — not just the diff snippet. */
 export const ActionArtifactSchema = z.discriminatedUnion("kind", [
   EditArtifactSchema,
   CommandArtifactSchema,
@@ -166,6 +170,18 @@ export const ScreenplaySchema = z
         message: `dialogue lines sum to ${dialogueLines}, over the budget of ${MAX_DIALOGUE_LINES}`,
       });
     }
+
+    screenplay.scenes.forEach((scene, i) => {
+      if (scene.type !== "dialogue") return;
+      const chars = scene.lines.reduce((n, l) => n + l.text.length, 0);
+      if (chars > MAX_SCENE_DIALOGUE_CHARS) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["scenes", i],
+          message: `dialogue scene has ${chars} spoken chars, over the per-scene budget of ${MAX_SCENE_DIALOGUE_CHARS} (guarantees voiceover fits the 9s clamp)`,
+        });
+      }
+    });
   });
 export type Screenplay = z.infer<typeof ScreenplaySchema>;
 
