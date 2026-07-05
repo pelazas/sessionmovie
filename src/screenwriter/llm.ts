@@ -2,7 +2,7 @@
  * LLM screenwriter — calls the local `claude` binary in print mode, so it
  * rides the user's existing subscription (no API key handling here).
  *
- * Timeline → digest → prompt (prompts/v1.md) → `claude -p` → JSON →
+ * Timeline → digest → prompt (prompts/v5.md) → `claude -p` → JSON →
  * zod validation with a bounded repair loop (validation issues are fed back
  * to the model). Never emits an invalid screenplay: if the binary is missing
  * or every attempt fails validation, falls back to the deterministic
@@ -21,7 +21,7 @@ import { claudeAvailable, extractJson, runClaude } from "./claude.js";
 import { digestTimeline } from "./digest.js";
 import { writeScreenplay as writeScreenplayHeuristic } from "./heuristic.js";
 
-export const PROMPT_VERSION = "v4";
+export const PROMPT_VERSION = "v5";
 
 const DEFAULT_TARGET_DURATION_SEC = 50;
 const DEFAULT_MAX_ATTEMPTS = 3;
@@ -120,8 +120,9 @@ function repairPrompt(originalPrompt: string, previousOutput: string, issues: st
     issues,
     "",
     "Fix every issue and output the corrected JSON only — no commentary, no markdown fences.",
-    "Remember: scene targetSec values must sum to targetDurationSec, dialogue lines are",
-    "at most 90 characters, and the scene type vocabulary is closed.",
+    "Remember: version is 2; scene targetSec values must sum to within ±10% of targetDurationSec;",
+    "each dialogue line ≤90 chars, each dialogue scene's lines combined ≤90 chars, ≤6 dialogue",
+    "lines total; stats scenes are bare (no numbers); and the scene type vocabulary is closed.",
   ].join("\n");
 }
 
