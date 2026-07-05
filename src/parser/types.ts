@@ -34,6 +34,16 @@ export interface CommandRun {
 export interface Turn {
   /** Redacted, condensed user prompt that started the turn. */
   userMessage: string;
+  /**
+   * Redacted, condensed prose the agent actually spoke during this turn — the
+   * first text block of each assistant message under the turn, first-seen
+   * order, capped per turn. The screenwriter condenses these into `claude`
+   * dialogue lines instead of inventing them from tool actions
+   * (docs/screenplay-format.md, "dialogue is condensed, never invented").
+   * Redacted at the door, exactly like `userMessage`. Absent when the turn
+   * carried no assistant prose (tool-only turns).
+   */
+  assistantText?: string[];
   timestamp?: string;
 }
 

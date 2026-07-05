@@ -124,6 +124,87 @@ describe("createdFiles", () => {
   });
 });
 
+describe("assistantText (agent prose for claude dialogue)", () => {
+  const speak = (id: string, text: string, extra: unknown[] = []) => ({
+    type: "assistant",
+    message: { id, role: "assistant", content: [{ type: "text", text }, ...extra] },
+  });
+
+  it("captures each assistant message's first text block onto its turn, in order", () => {
+    const timeline = parseTranscript(
+      jsonl([
+        { type: "user", message: { content: "build it" } },
+        speak("m1", "First, reading the docs."),
+        speak("m2", "Now scaffolding the project."),
+      ]),
+    );
+    assert.deepEqual(timeline.turns[0]?.assistantText, [
+      "First, reading the docs.",
+      "Now scaffolding the project.",
+    ]);
+  });
+
+  it("redacts prose at the door, like userMessage", () => {
+    const timeline = parseTranscript(
+      jsonl([
+        { type: "user", message: { content: "go" } },
+        speak("m1", "I edited /Users/alice/app/config.ts just now"),
+      ]),
+    );
+    assert.deepEqual(timeline.turns[0]?.assistantText, ["I edited ~/app/config.ts just now"]);
+  });
+
+  it("captures a message's text once even when split across content-block lines", () => {
+    const timeline = parseTranscript(
+      jsonl([
+        { type: "user", message: { content: "go" } },
+        speak("m1", "Scaffolding."),
+        // Same id re-emitted (content-block repetition) — must not double-count.
+        speak("m1", "Scaffolding."),
+      ]),
+    );
+    assert.deepEqual(timeline.turns[0]?.assistantText, ["Scaffolding."]);
+  });
+
+  it("is absent on a tool-only turn (no text block)", () => {
+    const timeline = parseTranscript(
+      jsonl([
+        { type: "user", message: { content: "run tests" } },
+        {
+          type: "assistant",
+          message: { id: "m1", role: "assistant", content: [{ type: "tool_use", id: "tu_1", name: "Bash", input: { command: "npm test" } }] },
+        },
+      ]),
+    );
+    assert.equal(timeline.turns[0]?.assistantText, undefined);
+  });
+
+  it("attaches prose to the turn it falls under, not the first turn", () => {
+    const timeline = parseTranscript(
+      jsonl([
+        { type: "user", message: { content: "first ask" } },
+        speak("m1", "Working on the first."),
+        { type: "user", message: { content: "second ask" } },
+        speak("m2", "Working on the second."),
+      ]),
+    );
+    assert.deepEqual(timeline.turns[0]?.assistantText, ["Working on the first."]);
+    assert.deepEqual(timeline.turns[1]?.assistantText, ["Working on the second."]);
+  });
+
+  it("caps captured utterances per turn (bounds memory on long turns)", () => {
+    const speaks = Array.from({ length: 12 }, (_, i) => speak(`m${i}`, `utterance ${i}`));
+    const timeline = parseTranscript(jsonl([{ type: "user", message: { content: "go" } }, ...speaks]));
+    assert.equal(timeline.turns[0]?.assistantText?.length, 8);
+    assert.equal(timeline.turns[0]?.assistantText?.[0], "utterance 0");
+  });
+
+  it("ignores assistant prose that arrives before any user turn", () => {
+    const timeline = parseTranscript(jsonl([speak("m1", "orphan prose"), { type: "user", message: { content: "hi" } }]));
+    assert.equal(timeline.turns[0]?.assistantText, undefined);
+  });
+});
+
 describe("unknown event types", () => {
   it("never crashes and never appears in the timeline", () => {
     const timeline = parseTranscript(

@@ -3,9 +3,12 @@
  *
  * The raw transcript can be hundreds of thousands of tokens; the screenwriter
  * reads this digest instead (docs/architecture.md, stage 1 "Digest generation").
- * Per turn: the user prompt, tools used, diffs with sizes, and command results
- * with exit codes — everything the model needs to find the struggle → insight
- * → resolution arc, and nothing else.
+ * Per turn: the exchange in both characters' real words — the user prompt
+ * (USER) and the agent's spoken prose (CLAUDE) — then what the agent did that
+ * turn: tools used, diffs with sizes and new-file markers, subagent dispatches,
+ * and command results with exit codes. That is everything the model needs to
+ * write the dialogue → action pairs from real words (docs/screenplay-format.md)
+ * and pick one truthful artifact per action, and nothing else.
  *
  * Inputs are already redacted (redaction happens in the parser, at the door),
  * so the digest is safe to send to the model as-is.
@@ -20,19 +23,37 @@ import type { CommandRun, FileDiff, Timeline, ToolCall, Turn } from "../parser/t
 
 export const MAX_DIGEST_CHARS = 30_000;
 
+/** Tool names that spawn subagents in Claude Code transcripts (mirrors heuristic.ts / facts.ts). */
+const SUBAGENT_TOOLS = new Set(["Task", "Agent"]);
+
 /** One rendering budget; levels are tried from most to least detailed. */
 interface DetailLevel {
   promptChars: number;
   toolsPerTurn: number;
   snippetChars: number;
   commandsPerTurn: number;
+  /** How many of a turn's assistant utterances to surface (0 = drop them). */
+  assistantPerTurn: number;
 }
 
 const DETAIL_LEVELS: DetailLevel[] = [
-  { promptChars: 700, toolsPerTurn: 40, snippetChars: 500, commandsPerTurn: 20 },
-  { promptChars: 400, toolsPerTurn: 16, snippetChars: 160, commandsPerTurn: 10 },
-  { promptChars: 250, toolsPerTurn: 8, snippetChars: 0, commandsPerTurn: 6 },
+  { promptChars: 700, toolsPerTurn: 40, snippetChars: 500, commandsPerTurn: 20, assistantPerTurn: 4 },
+  { promptChars: 400, toolsPerTurn: 16, snippetChars: 160, commandsPerTurn: 10, assistantPerTurn: 2 },
+  { promptChars: 250, toolsPerTurn: 8, snippetChars: 0, commandsPerTurn: 6, assistantPerTurn: 1 },
 ];
+
+/**
+ * Sample a turn's assistant utterances for the digest: the opener plus, when
+ * the turn ran long, the closer — so both ends of Claude's arc stay visible
+ * (the wrap-up line often lives in the last utterance) without dumping all of
+ * them.
+ */
+function pickAssistant(texts: string[], n: number): string[] {
+  if (n <= 0) return [];
+  if (texts.length <= n) return texts;
+  if (n === 1) return [texts[0] as string];
+  return [...texts.slice(0, n - 1), texts[texts.length - 1] as string];
+}
 
 function clamp(text: string, max: number): string {
   const collapsed = text.replace(/\s+/g, " ").trim();
@@ -64,9 +85,21 @@ function header(timeline: Timeline): string {
       `(+${totals.added}/−${totals.removed}) | commands: ${totals.commands} ` +
       `(${totals.failedCommands} failed)`,
   );
-  // Session facts (docs/v1-storychange.md): real numbers are anchors — the
-  // screenwriter can put them in captions and achievements. One line, only
-  // when the transcript carried facts.
+  // Files written from scratch feed the `create` action artifact
+  // (docs/screenplay-format.md): the per-turn DIFF lines below mark each one
+  // "(new file)", so this is just the count the model needs to know a create
+  // beat is available. Matches the annotation exactly — Write-touched AND
+  // removed nothing (an overwrite is an edit, not a create).
+  const createdSet = new Set(timeline.createdFiles);
+  const newFiles = new Set(
+    timeline.diffs.filter((d) => createdSet.has(d.file) && d.removed === 0).map((d) => d.file),
+  );
+  if (newFiles.size > 0) {
+    lines.push(`created from scratch: ${newFiles.size} file(s)`);
+  }
+  // Session facts (docs/v1-storychange.md): real numbers are context for the
+  // screenwriter's captions — the rendered stats numbers themselves ride the
+  // CLI facts sidecar, not the screenplay. One line, only when facts exist.
   const facts = factsDigestLine(buildSessionFacts(timeline));
   if (facts) lines.push(facts);
   return lines.join("\n");
@@ -78,10 +111,23 @@ function renderTurn(
   tools: ToolCall[],
   diffs: FileDiff[],
   commands: CommandRun[],
+  createdSet: Set<string>,
   level: DetailLevel,
 ): string {
   const lines: string[] = [`## TURN ${index + 1}${timeOfDay(turn.timestamp)}`];
+  // The turn's exchange: USER is the user's real words (dialogue source for
+  // `speaker:user`) and CLAUDE is the agent's real words (dialogue source for
+  // `speaker:claude`); the TOOLS / DIFF / COMMAND / SUBAGENTS below are what
+  // the agent DID, the artifact material and the fallback for claude lines on
+  // tool-only turns.
   lines.push(`USER: ${clamp(turn.userMessage, level.promptChars) || "(empty prompt)"}`);
+
+  if (turn.assistantText && turn.assistantText.length > 0 && level.assistantPerTurn > 0) {
+    const spoken = pickAssistant(turn.assistantText, level.assistantPerTurn).map((t) =>
+      clamp(t, level.promptChars),
+    );
+    lines.push(`CLAUDE: ${spoken.join(" · ")}`);
+  }
 
   if (tools.length > 0) {
     const shown = tools.slice(0, level.toolsPerTurn);
@@ -90,8 +136,20 @@ function renderTurn(
     lines.push(`TOOLS (${tools.length}): ${items.join("; ")}`);
   }
 
+  // Subagent dispatches, pulled out of the flat TOOLS list so the model can
+  // build a truthful `subagents` artifact (tasks <= 60 chars, mirrors the schema).
+  const subagents = tools.filter((t) => SUBAGENT_TOOLS.has(t.tool));
+  if (subagents.length > 0) {
+    const tasks = subagents.map((t) => clamp(t.summary, 60));
+    lines.push(`SUBAGENTS (${subagents.length}): ${tasks.join("; ")}`);
+  }
+
   for (const diff of diffs) {
-    lines.push(`DIFF: ${diff.file} +${diff.added}/−${diff.removed}`);
+    // "(new file)" only when Write touched it AND it removed nothing — a Write
+    // that removes lines overwrote an existing file, not a from-scratch create
+    // (createdFiles is "Write-touched", not proven-new; see parser/types.ts).
+    const isNew = createdSet.has(diff.file) && diff.removed === 0 ? " (new file)" : "";
+    lines.push(`DIFF: ${diff.file} +${diff.added}/−${diff.removed}${isNew}`);
     if (diff.snippet && level.snippetChars > 0) {
       const snippet = diff.snippet.trim().slice(0, level.snippetChars);
       lines.push(...snippet.split("\n").map((l) => `  ${l}`));
@@ -114,6 +172,7 @@ function renderTurn(
 }
 
 function renderTurnBlocks(timeline: Timeline, level: DetailLevel): string[] {
+  const createdSet = new Set(timeline.createdFiles);
   return timeline.turns.map((turn, i) =>
     renderTurn(
       i,
@@ -121,6 +180,7 @@ function renderTurnBlocks(timeline: Timeline, level: DetailLevel): string[] {
       timeline.toolCalls.filter((t) => t.turnIndex === i),
       timeline.diffs.filter((d) => d.turnIndex === i),
       timeline.commands.filter((c) => c.turnIndex === i),
+      createdSet,
       level,
     ),
   );

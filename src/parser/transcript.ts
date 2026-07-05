@@ -38,6 +38,12 @@ interface RawLine {
 /** Gaps longer than this read as "walked away", not "thinking" (session facts). */
 const IDLE_GAP_SEC = 120;
 
+/** Per-turn cap on captured assistant utterances — bounds memory on long turns. */
+const MAX_ASSISTANT_UTTERANCES_PER_TURN = 8;
+
+/** Each captured utterance is condensed to this many chars, like userMessage. */
+const ASSISTANT_UTTERANCE_CHARS = 200;
+
 interface PendingToolUse {
   tool: string;
   input: Record<string, unknown>;
@@ -178,6 +184,9 @@ export function parseTranscript(jsonl: string): Timeline {
   // A line without an id can't be deduped against anything, so it always counts.
   let assistantTurns = 0;
   const assistantIdsSeen = new Set<string>();
+  // Message ids whose prose we've already captured — a message split across
+  // several content-block lines must contribute its text only once.
+  const assistantTextIdsSeen = new Set<string>();
 
   // Session facts (docs/v1-storychange.md): usage totals deduped by API
   // message id (one message spans several content-block lines, each
@@ -284,6 +293,30 @@ export function parseTranscript(jsonl: string): Timeline {
 
       const content = line.message?.content;
       if (!Array.isArray(content)) continue;
+
+      // Capture the agent's spoken prose — the first text block of this message
+      // — so the screenwriter condenses Claude's real words into `claude`
+      // dialogue lines. Redacted at the door like userMessage; deduped by
+      // message id (a message split across lines contributes once); attached to
+      // the turn the message falls under; capped to bound memory on long turns.
+      const currentTurnObj = turns[currentTurn()];
+      const alreadyCaptured = assistantMessageId
+        ? assistantTextIdsSeen.has(assistantMessageId)
+        : false;
+      if (currentTurnObj && !alreadyCaptured) {
+        const textBlock = content
+          .map(asRecord)
+          .find((b) => !!b && b["type"] === "text" && !!str(b["text"])?.trim());
+        const prose = textBlock ? str(textBlock["text"]) : undefined;
+        if (prose) {
+          const utterances = (currentTurnObj.assistantText ??= []);
+          if (utterances.length < MAX_ASSISTANT_UTTERANCES_PER_TURN) {
+            utterances.push(redactString(condense(prose, ASSISTANT_UTTERANCE_CHARS)));
+            if (assistantMessageId) assistantTextIdsSeen.add(assistantMessageId);
+          }
+        }
+      }
+
       for (const block of content) {
         const rec = asRecord(block);
         if (!rec || rec["type"] !== "tool_use") continue;
