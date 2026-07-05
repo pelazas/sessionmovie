@@ -16,7 +16,7 @@ const base: GenreSignals = {
 };
 
 describe("pickGenre — one test per rule branch, top-down", () => {
-  it("≥3 failed commands but the final run is green falls through past horror (no quest anymore)", () => {
+  it("≥3 failed commands but the final run is green falls through past horror (the removed genre used to intercept this)", () => {
     const pick = pickGenre({ ...base, failedCommands: 3, finalCommandGreen: true });
     assert.equal(pick.genre, "classic");
   });
