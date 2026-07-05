@@ -279,8 +279,8 @@ export function dominantColor(raster: Raster): string {
     pixels.push({ r: small.data[i] ?? 0, g: small.data[i + 1] ?? 0, b: small.data[i + 2] ?? 0 });
   }
   const byCount = medianCut(pixels, DOMINANT_CLUSTER_COUNT)
-    .map((cluster) => ({ ...cluster, saturation: rgbToHsl(cluster.mean).s }))
-    .sort((a, b) => b.count - a.count);
+    .map((cluster, i) => ({ ...cluster, saturation: rgbToHsl(cluster.mean).s, i }))
+    .sort((a, b) => b.count - a.count || a.i - b.i);
   const saturated = byCount.find((c) => c.saturation > DOMINANT_SATURATION_FLOOR);
   const winner = saturated ?? byCount[0];
   return rgbToHex(winner?.mean ?? { r: 128, g: 128, b: 128 });

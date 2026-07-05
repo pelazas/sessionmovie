@@ -95,7 +95,7 @@ if (!elevenLabsKey) {
 // output, not a rendered frame) — docs/security-and-privacy.md carve-out.
 const githubLogin = resolveGitHubLogin();
 if (githubLogin) {
-  ok(`GitHub identity: ${githubLogin} (avatar head fetched at render time)`);
+  ok(`GitHub identity: ${githubLogin} (avatar head fetched at pipeline time)`);
 } else {
   process.stdout.write("- GitHub identity: none resolved — using fallback initials\n");
 }
