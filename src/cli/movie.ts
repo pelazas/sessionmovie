@@ -19,7 +19,6 @@ import { compositionFor } from "../genre/compositions.js";
 // ── T5 pipeline wiring: punch-up → beat-quantize → genre-voiced TTS ──
 import { BEATS as CLASSIC_BEATS } from "../../remotion/src/audio/beats.js";
 import { BEATS as QUEST_BEATS } from "../../remotion/src/audio/questBeats.js";
-import { punchUpScreenplay } from "../screenwriter/punchup.js";
 import { quantizeToBeats } from "../quantize.js";
 import { voiceForGenre } from "../voiceover/manifest.js";
 import { GENRES, isGenre, pickGenre, signalsFrom, type Genre } from "../genre/rules.js";
@@ -186,15 +185,8 @@ if (!validated.success) {
 }
 let screenplay = validated.data;
 
-// ── T5 pipeline: persona punch-up → beat quantize (order is load-bearing:
-// narrate final words; fit narration against final durations) ──────────────
-if (useLlm) {
-  const punched = punchUpScreenplay(screenplay, genre);
-  screenplay = punched.screenplay;
-  process.stdout.write(
-    `   punch-up: ${punched.source}${punched.attempts ? ` (${punched.attempts} attempt${punched.attempts > 1 ? "s" : ""})` : ""} — ${genre} persona\n`,
-  );
-}
+// ── T5 pipeline: beat quantize (punch-up retired until a second genre pack
+// exists — docs/genre-packs.md) ─────────────────────────────────────────────
 {
   const beats = genreComposition === "Quest" ? QUEST_BEATS : CLASSIC_BEATS;
   const quantized = quantizeToBeats(screenplay, [...beats], FPS);
