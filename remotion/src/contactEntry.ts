@@ -24,7 +24,7 @@ const ContactSheetRoot = (): ReactElement =>
     fps: 30,
     width: CONTACT_SHEET_WIDTH,
     height: CONTACT_SHEET_HEIGHT,
-    durationInFrames: 60,
+    durationInFrames: 90, // matches Root.tsx's own ContactSheet composition
   });
 
 registerRoot(ContactSheetRoot);
