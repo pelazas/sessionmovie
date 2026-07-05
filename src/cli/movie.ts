@@ -11,14 +11,15 @@ import { writeScreenplay } from "../screenwriter/heuristic.js";
 import { validateScreenwriterJson, writeScreenplayLLMDetailed } from "../screenwriter/llm.js";
 import { ScreenplaySchema, type Screenplay } from "../screenplay/schema.js";
 import { remotionCliInstalled, runRemotion } from "./workspace.js";
-// voiceover integration (feat/voiceover)
-import { buildVoiceoverManifest } from "../voiceover/manifest.js";
+// voiceover integration (rewrite/voiceover-dialogue, PR-H): per-line dialogue
+// narration, synthesized before the beat-quantize lock so scene durations
+// settle to the measured audio, not the other way around.
+import { synthesizeDialogue, resizeDialogueToVoiceover } from "../voiceover/pace.js";
 import { ttsConfigFromEnv } from "../voiceover/tts.js";
-// ── T5 pipeline wiring: beat-quantize → TTS (punch-up retired, docs/genre-packs.md) ──
+import type { VoiceoverLineCue } from "../voiceover/types.js";
+// ── T5 pipeline wiring: beat-quantize (punch-up retired, docs/genre-packs.md) ──
 import { BEATS } from "../../remotion/src/audio/beatData.js";
 import { quantizeToBeats } from "../quantize.js";
-import { voiceForGenre } from "../voiceover/manifest.js";
-import type { Genre } from "../genre/rules.js";
 import { compressionLine, pickStatCards, titleMetaFor } from "../facts/facts.js";
 import { sceneTimesFor } from "../facts/sceneTimes.js";
 // GitHub identity pipeline (rewrite/identity, PR-F)
@@ -30,7 +31,6 @@ import { resolveUserIdentity } from "../identity/index.js";
 const FPS = 30;
 // No genre picker anymore (docs/genre-packs.md): classic is the only pack.
 const COMPOSITION_ID = "Classic";
-const genre: Genre = "classic";
 
 function movieDurationSec(screenplay: Screenplay): number {
   const frames = screenplay.scenes.reduce(
@@ -43,6 +43,7 @@ function movieDurationSec(screenplay: Screenplay): number {
 function usage(): never {
   process.stderr.write(
     "usage: sessionmovie <transcript.jsonl> [--out movie.mp4] [--keep-screenplay] [--no-llm] [--voiceover] [--refresh-voices] [--screenplay <file>]\n" +
+      "       --voiceover narrates each dialogue line (ELEVENLABS_API_KEY required); per-speaker voice via ELEVENLABS_VOICE_USER / ELEVENLABS_VOICE_CLAUDE (falls back to ELEVENLABS_VOICE_ID, then a default narrator)\n" +
       "       sessionmovie doctor — check setup (node, remotion, browser, voiceover key)\n" +
       "       sessionmovie prompt <transcript.jsonl> — print the screenwriter prompt (skill path)\n",
   );
@@ -153,6 +154,48 @@ if (!validated.success) {
 }
 let screenplay = validated.data;
 
+// ── voiceover integration block (rewrite/voiceover-dialogue, PR-H) ──────────
+// Opt-in ElevenLabs narration, PER DIALOGUE LINE (synth-before-lock): every
+// line is synthesized first, then each dialogue scene's targetSec locks to
+// its measured audio and the rest of the movie renormalizes to hold the
+// total — so quantize (below) snaps cuts to the REAL narration, not a guess.
+// All API calls happen HERE, pre-render — never inside compositions. The
+// manifest rides as a renderer-side sidecar in the composition input props;
+// the frozen screenplay IR is untouched.
+// Budget-infeasible or synth-failure both degrade to a SILENT whole movie
+// (never partial narration) — exit 0, not a hard failure.
+let voiceoverManifest: { lineCues: VoiceoverLineCue[] } | undefined;
+if (voiceover) {
+  const ttsConfig = ttsConfigFromEnv();
+  if (!ttsConfig) {
+    fail(
+      "--voiceover needs ELEVENLABS_API_KEY in the environment — export it or `set -a; source .env; set +a` first",
+    );
+  }
+  process.stdout.write(
+    `   voiceover: narrating dialogue lines (ElevenLabs, ${ttsConfig.model})…\n`,
+  );
+  try {
+    const synth = await synthesizeDialogue(screenplay, ttsConfig, { refresh: refreshVoices });
+    const resized = resizeDialogueToVoiceover(screenplay, synth.lineCues);
+    if (resized.ok) {
+      screenplay = resized.screenplay;
+      voiceoverManifest = { lineCues: resized.lineCues };
+      process.stdout.write(
+        `   voiceover: ${resized.lineCues.length} line(s) — ${synth.apiCalls} API call(s), ` +
+          `${synth.cacheHits} cache hit(s)${resized.droppedLines ? `, ${resized.droppedLines} dropped (over 9s)` : ""}\n`,
+      );
+    } else {
+      process.stdout.write("   voiceover: narration won't fit the budget — rendering silent\n");
+    }
+  } catch (err) {
+    process.stdout.write(
+      `   voiceover: synth failed (${err instanceof Error ? err.message : String(err)}) — rendering silent\n`,
+    );
+  }
+}
+// ── end voiceover integration block ─────────────────────────────────────────
+
 // ── T5 pipeline: beat quantize (punch-up retired until a second genre pack
 // exists — docs/genre-packs.md) ─────────────────────────────────────────────
 {
@@ -174,37 +217,8 @@ process.stdout.write(
     `(${screenplay.scenes.map((s) => s.type).join(" → ")})\n`,
 );
 
-// ── voiceover integration block (feat/voiceover) ────────────────────────────
-// Opt-in ElevenLabs narration of scene captions (docs/audio.md prototype tier).
-// All API calls happen HERE, pre-render — never inside compositions. The
-// manifest rides as a renderer-side sidecar in the composition input props;
-// the frozen screenplay IR is untouched.
 let renderProps: Record<string, unknown> = screenplay;
-if (voiceover) {
-  const ttsConfig = ttsConfigFromEnv();
-  if (!ttsConfig) {
-    fail(
-      "--voiceover needs ELEVENLABS_API_KEY in the environment — export it or `set -a; source .env; set +a` first",
-    );
-  }
-  process.stdout.write(
-    `   voiceover: narrating captions (ElevenLabs, voice ${voiceForGenre(genre)}, ${ttsConfig.model}, ${genre} persona)…\n`,
-  );
-  try {
-    const stats = await buildVoiceoverManifest(screenplay, ttsConfig, {
-      refresh: refreshVoices,
-      genre, // genre-keyed voice lookup (docs/genre-packs.md) — always "classic" for now
-    });
-    process.stdout.write(
-      `   voiceover: ${stats.manifest.cues.length} cue(s) — ${stats.apiCalls} API call(s), ` +
-        `${stats.cacheHits} cache hit(s), ${stats.skipped.length} skipped by fit rule\n`,
-    );
-    renderProps = { ...screenplay, voiceover: stats.manifest };
-  } catch (err) {
-    fail(`voiceover failed: ${err instanceof Error ? err.message : String(err)}`);
-  }
-}
-// ── end voiceover integration block ─────────────────────────────────────────
+if (voiceoverManifest) renderProps = { ...renderProps, voiceover: voiceoverManifest };
 
 // ── sceneTimes sidecar block (feat/text-economy) ────────────────────────────
 // Per-scene clock times, riding the composition input props next to the
