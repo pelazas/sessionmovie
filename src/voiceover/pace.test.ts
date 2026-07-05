@@ -118,6 +118,63 @@ describe("resizeDialogueToVoiceover", () => {
     // failure), but assert it holds for the returned screenplay too.
     assert.equal(ScreenplaySchema.safeParse(result.screenplay).success, true);
   });
+
+  it("all-dialogue screenplay: nothing to absorb the gap — degrades ok:false unless D already matches the target within tolerance", () => {
+    const screenplay = ScreenplaySchema.parse({
+      version: 2,
+      sessionMeta: {},
+      targetDurationSec: 50,
+      scenes: [
+        {
+          type: "dialogue",
+          lines: [
+            { speaker: "user" as const, text: "hi", emotion: "neutral" as const },
+            { speaker: "claude" as const, text: "hey", emotion: "neutral" as const },
+          ],
+          targetSec: 50,
+        },
+      ],
+    });
+    // dialogueNeed = 2 + 1.5 + 0.35×1 + 0.75 + 0.75 = 5.35s — nowhere near the
+    // 50s target, and there are no non-dialogue scenes to absorb the gap.
+    const cues = [lineCue(0, 0, 2), lineCue(0, 1, 1.5)];
+    const result = resizeDialogueToVoiceover(screenplay, cues);
+    assert.equal(result.ok, false);
+    assert.deepEqual(result.screenplay, screenplay); // untouched on infeasibility
+  });
+
+  it("zero lineCues for the dialogue scene: collapses to D_MIN, renorm proceeds", () => {
+    const screenplay = screenplayWith(2, 50); // dialogue scene has 2 lines, but we synthesize none
+    const result = resizeDialogueToVoiceover(screenplay, []);
+    assert.equal(result.ok, true);
+    assert.equal(result.lineCues.length, 0);
+    assert.equal(result.droppedLines, 0);
+    const dialogueScene = result.screenplay.scenes[1];
+    assert.equal(dialogueScene?.type, "dialogue");
+    assert.equal(dialogueScene?.targetSec, 3); // D_MIN
+  });
+
+  it("no-dialogue screenplay: passes through cleanly (nothing to lock, renorm reproduces the original split)", () => {
+    const screenplay = ScreenplaySchema.parse({
+      version: 2,
+      sessionMeta: {},
+      targetDurationSec: 50,
+      scenes: [
+        { type: "title", headline: "h", task: "t", targetSec: 5 },
+        { type: "action", artifact: { kind: "command" as const, command: "npm test", exitCode: 0 }, targetSec: 20 },
+        { type: "showcase", artifact: { kind: "command" as const, command: "npm test", exitCode: 0 }, targetSec: 15 },
+        { type: "stats", targetSec: 10 },
+      ],
+    });
+    const result = resizeDialogueToVoiceover(screenplay, []);
+    assert.equal(result.ok, true);
+    assert.equal(result.lineCues.length, 0);
+    assert.equal(result.droppedLines, 0);
+    assert.deepEqual(
+      result.screenplay.scenes.map((s) => s.targetSec),
+      screenplay.scenes.map((s) => s.targetSec),
+    );
+  });
 });
 
 describe("voiceForSpeaker", () => {
