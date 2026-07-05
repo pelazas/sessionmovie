@@ -17,13 +17,8 @@ export const classicPack: GenrePack = {
   id: "classic",
   compositionId: "Classic",
   components: {
-    title: ({ scene, screenplay, durationInFrames }) => (
-      <Title
-        scene={scene}
-        caption={scene.caption}
-        repo={screenplay.sessionMeta.repo}
-        durationInFrames={durationInFrames}
-      />
+    title: ({ scene, durationInFrames }) => (
+      <Title scene={scene} caption={scene.caption} durationInFrames={durationInFrames} />
     ),
     dialogue: ({ scene, durationInFrames }) => (
       <Dialogue scene={scene} caption={scene.caption} durationInFrames={durationInFrames} />

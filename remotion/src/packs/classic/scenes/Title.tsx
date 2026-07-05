@@ -1,199 +1,114 @@
-import {
-  AbsoluteFill,
-  interpolate,
-  useCurrentFrame,
-  useVideoConfig,
-} from "remotion";
-import { EASE_OUT } from "../../../easing";
+import { AbsoluteFill, Sequence, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { titleSchedule } from "../../../timing";
-import { cameraDrift, flash, shake } from "../../../effects";
 import type { TitleScene } from "../../../screenplay";
 import { theme } from "../../../theme";
+import { EASE, popIn } from "../../../motion";
+import { Character } from "../../../characters/Character";
+import { useTitleMeta } from "../../sidecars";
+import { Panel } from "../../Panel";
 import { Caption } from "../../Caption";
 import { ClockChip } from "../../ClockChip";
 
+/** No cold open (docs/v1-storychange.md): both characters walk in from the
+ * edges, settle to idle, then the mission types itself out. Title is SILENT —
+ * no voiceover cue is ever assigned to it. */
 export const Title: React.FC<{
   scene: TitleScene;
   caption?: string;
-  repo?: string;
   durationInFrames: number;
-}> = ({ scene, caption, repo, durationInFrames }) => {
+}> = ({ scene, caption, durationInFrames }) => {
   const frame = useCurrentFrame();
-  const drift = cameraDrift(frame, "classic-title", durationInFrames);
   const { fps } = useVideoConfig();
+  const meta = useTitleMeta();
 
-  // Schedule (cold open, typing speed) comes from the shared timing module —
-  // the audio layer reads the same numbers for its keystroke SFX.
-  const { coldOpenFrames, typingStart, charsPerFrame, typingEnd } = titleSchedule(
+  const { walkInEnd, typingStart, charsPerFrame, captionIn: captionInAt } = titleSchedule(
     scene,
     durationInFrames,
   );
-  const cardFrame = frame - coldOpenFrames;
 
-  const panelIn = interpolate(cardFrame, [0, 20], [0, 1], {
-    easing: EASE_OUT,
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  const typedChars = Math.max(0, Math.floor((cardFrame - typingStart) * charsPerFrame));
+  const head = popIn(frame, fps);
+  const typedChars = Math.max(0, Math.floor((frame - typingStart) * charsPerFrame));
   const typed = scene.task.slice(0, typedChars);
   const cursorOn = Math.floor(frame / (fps / 2)) % 2 === 0;
-  const captionIn = interpolate(cardFrame, [typingEnd + 5, typingEnd + 20], [0, 1], {
+
+  const captionIn = interpolate(frame, [captionInAt, captionInAt + 15], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  if (scene.coldOpen && frame < coldOpenFrames) {
-    // feat/effects: the cold open is a PICTURE — the climax as a red terminal
-    // frame mid-catastrophe (impact shake + red flash on entry), then the
-    // smash-cut to the title card.
-    const flashIn = interpolate(frame, [0, 6], [0, 1], {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    });
-    const jolt = shake(frame, 0, 10);
-    const redWash = flash(frame, 0, 10);
-    return (
-      <AbsoluteFill
-        style={{
-          backgroundColor: theme.bg,
-          justifyContent: "center",
-          alignItems: "center",
-          fontFamily: theme.mono,
-          padding: 70,
-          transform: `${drift.transform} translate(${jolt.x}px, ${jolt.y}px)`,
-        }}
-      >
-        <div
-          style={{
-            width: "100%",
-            backgroundColor: theme.panel,
-            border: `3px solid ${theme.red}`,
-            borderRadius: 20,
-            overflow: "hidden",
-            opacity: flashIn,
-            transform: `scale(${0.94 + flashIn * 0.06})`,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 16,
-              padding: "22px 32px",
-              borderBottom: `2px solid ${theme.panelBorder}`,
-            }}
-          >
-            {[theme.red, theme.yellow, theme.green].map((c) => (
-              <div key={c} style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: c }} />
-            ))}
-            <span style={{ color: theme.red, fontSize: 30, marginLeft: 14 }}>terminal — the bad moment</span>
-          </div>
-          <div style={{ padding: 44, backgroundColor: theme.redBg }}>
-            {[0.4, 0.7, 0.55].map((w, i) => (
-              <div
-                key={i}
-                style={{
-                  height: 20,
-                  width: `${w * 100}%`,
-                  borderRadius: 6,
-                  backgroundColor: theme.red,
-                  opacity: 0.35,
-                  marginBottom: 18,
-                }}
-              />
-            ))}
-            <div style={{ color: theme.red, fontSize: 62, fontWeight: 700, lineHeight: 1.25 }}>
-              ✗ {scene.coldOpen.description}
-            </div>
-          </div>
-        </div>
-        <div style={{ color: theme.textDim, fontSize: 36, marginTop: 44, opacity: flashIn }}>
-          2 hours earlier…
-        </div>
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            backgroundColor: theme.red,
-            opacity: redWash * 0.2,
-            pointerEvents: "none",
-          }}
-        />
-      </AbsoluteFill>
-    );
-  }
+  const metaLine = [meta.repo, meta.dateLabel, meta.durationLabel]
+    .filter((v): v is string => Boolean(v))
+    .join(" · ");
+
+  const walkIn = interpolate(frame, [0, walkInEnd], [1, 0], {
+    easing: EASE,
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
 
   return (
     <AbsoluteFill
       style={{
         backgroundColor: theme.bg,
+        fontFamily: theme.mono,
         justifyContent: "center",
         alignItems: "center",
-        fontFamily: theme.mono,
-        padding: 60,
-        transform: drift.transform,
+        padding: 70,
       }}
     >
       <div
         style={{
-          width: "100%",
-          backgroundColor: theme.panel,
-          border: `2px solid ${theme.panelBorder}`,
-          borderRadius: 24,
-          overflow: "hidden",
-          opacity: panelIn,
-          transform: `translateY(${(1 - panelIn) * 80}px) scale(${0.94 + panelIn * 0.06})`,
+          color: theme.textPrimary,
+          fontSize: 58,
+          fontWeight: 700,
+          textAlign: "center",
+          marginBottom: 36,
+          opacity: head.opacity,
+          transform: `scale(${head.scale})`,
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 16,
-            padding: "24px 32px",
-            borderBottom: `2px solid ${theme.panelBorder}`,
-          }}
-        >
-          {[theme.red, theme.yellow, theme.green].map((c) => (
-            <div
-              key={c}
-              style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: c }}
-            />
-          ))}
-          <span style={{ color: theme.textDim, fontSize: 30, marginLeft: 16 }}>
-            {repo ?? "session"}
-          </span>
-        </div>
-        <div style={{ padding: 48, minHeight: 420 }}>
-          <div style={{ color: theme.textDim, fontSize: 34, marginBottom: 24 }}>
-            {"$ claude"}
-          </div>
-          <div
-            style={{
-              color: theme.text,
-              fontSize: 52,
-              lineHeight: 1.4,
-              overflowWrap: "break-word",
-            }}
-          >
-            <span style={{ color: theme.blue }}>{"> "}</span>
-            {typed}
-            <span
-              style={{
-                display: "inline-block",
-                width: 28,
-                height: 58,
-                marginLeft: 6,
-                verticalAlign: "text-bottom",
-                backgroundColor: theme.text,
-                opacity: cursorOn ? 1 : 0,
-              }}
-            />
-          </div>
-        </div>
+        {scene.headline}
       </div>
+      <Panel variant="code" title={meta.repo ?? "session"} style={{ width: "90%", maxWidth: 1500 }}>
+        <div style={{ color: theme.textDim, fontSize: 32, marginBottom: 20 }}>{"$ claude"}</div>
+        <div style={{ color: theme.textPrimary, fontSize: 46, lineHeight: 1.4, overflowWrap: "break-word" }}>
+          <span style={{ color: theme.accent }}>{"> "}</span>
+          {typed}
+          <span
+            style={{
+              display: "inline-block",
+              width: 24,
+              height: 50,
+              marginLeft: 6,
+              verticalAlign: "text-bottom",
+              backgroundColor: theme.textPrimary,
+              opacity: cursorOn ? 1 : 0,
+            }}
+          />
+        </div>
+      </Panel>
+      {metaLine ? <div style={{ color: theme.textDim, fontSize: 26, marginTop: 20 }}>{metaLine}</div> : null}
+
+      {/* both characters walk in from the edges, then settle to idle — two
+          Sequences so the squash-bounce hard-cut mask re-fires on the clip
+          change (motion.ts squashBounce), not just once at frame 0. */}
+      <div style={{ position: "absolute", bottom: 60, left: 100, transform: `translateX(${(-walkIn * 260).toFixed(1)}px)` }}>
+        <Sequence from={0} durationInFrames={walkInEnd} layout="none">
+          <Character who="user" emotion="neutral" clip="walk" sizePx={220} seed="title-user" />
+        </Sequence>
+        <Sequence from={walkInEnd} layout="none">
+          <Character who="user" emotion="neutral" clip="idle" sizePx={220} seed="title-user" />
+        </Sequence>
+      </div>
+      <div style={{ position: "absolute", bottom: 60, right: 100, transform: `translateX(${(walkIn * 260).toFixed(1)}px)` }}>
+        <Sequence from={0} durationInFrames={walkInEnd} layout="none">
+          <Character who="claude" emotion="neutral" clip="walk" sizePx={220} flip seed="title-claude" />
+        </Sequence>
+        <Sequence from={walkInEnd} layout="none">
+          <Character who="claude" emotion="neutral" clip="idle" sizePx={220} flip seed="title-claude" />
+        </Sequence>
+      </div>
+
       <ClockChip />
       {caption ? <Caption text={caption} opacity={captionIn} /> : null}
     </AbsoluteFill>
