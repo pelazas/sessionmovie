@@ -1,5 +1,5 @@
 import { AbsoluteFill, Series, useCurrentFrame, useVideoConfig } from "remotion";
-import type { FactTile } from "../../../src/facts/types";
+import type { FactTile, StatCard, TitleMeta } from "../../../src/facts/types";
 import type { VoiceoverManifest } from "../../../src/voiceover/types";
 import { SceneTimeContext } from "./ClockChip";
 import { FactTilesContext } from "./FactTiles";
@@ -75,6 +75,11 @@ export const makePackComposition = (pack: GenrePack): React.FC<Screenplay> => {
       voiceover?: VoiceoverManifest;
       sceneTimes?: (string | null)[];
       factTiles?: FactTile[];
+      // PR-G sidecars: type-only for now — PR-E switches the stats/title
+      // scenes to consume these and retires factTiles/sceneTimes.
+      statCards?: StatCard[];
+      compressionLine?: string;
+      titleMeta?: TitleMeta;
     }
   > = (screenplay) => {
     const { fps } = useVideoConfig();
