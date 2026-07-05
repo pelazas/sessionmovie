@@ -1,6 +1,5 @@
 import { allPacks, registerGenre } from "./registry";
 import { classicPack } from "./classic";
-import { questPack } from "./quest";
 
 /**
  * Pack registration — one registerGenre() call per shipped pack. Shipping a
@@ -13,7 +12,6 @@ import { questPack } from "./quest";
  * entirely — importing a value defined in this module cannot be skipped.
  */
 registerGenre(classicPack);
-registerGenre(questPack);
 
 export const PACKS = allPacks();
 
