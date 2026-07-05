@@ -7,6 +7,7 @@
  */
 import { remotionCliInstalled, remotionCliVersion, repoRoot, runRemotion } from "./workspace.js";
 import { checkApiKey } from "../voiceover/tts.js";
+import { resolveGitHubLogin } from "../identity/resolve.js";
 
 const MIN_NODE_MAJOR = 20; // matches package.json "engines"
 
@@ -86,6 +87,17 @@ if (!elevenLabsKey) {
       "check network/proxy and re-run doctor; or unset ELEVENLABS_API_KEY to render without voiceover",
     );
   }
+}
+
+// 6. GitHub identity (rewrite/identity, PR-F) — informational only: no login
+// resolving is not a failure, it just means the render uses the initials
+// fallback (docs/characters.md). Printing the login here is fine (CLI
+// output, not a rendered frame) — docs/security-and-privacy.md carve-out.
+const githubLogin = resolveGitHubLogin();
+if (githubLogin) {
+  ok(`GitHub identity: ${githubLogin} (avatar head fetched at pipeline time)`);
+} else {
+  process.stdout.write("- GitHub identity: none resolved — using fallback initials\n");
 }
 
 process.stdout.write("\n");

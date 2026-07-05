@@ -33,14 +33,14 @@ export const Caption: React.FC<{ text: string; opacity: number }> = ({
         fontFamily: theme.mono,
         fontSize: 38,
         fontStyle: "italic",
-        color: theme.textDim,
+        color: theme.textPrimary,
         opacity: state.opacity,
         padding: "0 80px",
       }}
     >
       {state.mode === "sync" && state.words && state.words.length > 0
         ? state.words.map((word, i) => (
-            <span key={i} style={{ color: word.spoken ? theme.text : theme.textDim }}>
+            <span key={i} style={{ color: word.spoken ? theme.textPrimary : theme.textDim }}>
               {i > 0 ? " " : ""}
               {word.text}
             </span>
