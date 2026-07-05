@@ -29,27 +29,19 @@ As a **Claude Code skill**, the LLM step runs inside your existing session — n
 
 ## What the movie looks like
 
-Cold open on the most dramatic moment (`17 tests failing`) → *"2 hours earlier…"* → title card → hyper-fast exploration montage, tool chips machine-gunning past → first fix attempt → tests **RED**, record-scratch → tempo drops, the key line of code enlarges, slow-motion → the real fix types in character by character → green cascade with a level-up sound → stats card: *"2h 14m → 58s. 9 files. +412/−118. Achievement: Rage Quit Averted."*
+There's no genre costume — one look, dark terminal canvas with a coral accent (see [docs/visual-language.md](docs/visual-language.md)). Title card, plainly stated (no cold open) → a few rounds of dialogue → one real artifact each, one code window / terminal / stat card chrome shared by every scene → an optional showcase of the biggest edit when the session earned one → a stats card built from real numbers: *"2h 14m → 58s. 9 files. +412/−118."*
 
-Dialogue scenes star two characters — you and Claude — visual-novel style, with real (condensed) lines from the session and expressions picked per beat. See [docs/visual-language.md](docs/visual-language.md).
+Dialogue scenes star two pixel-art characters — you and Claude — with real (condensed) lines from the session and an emotion picked per beat. The agent is an original pixel-art homage to Claude Code; you're the same rig topped with your own GitHub avatar, pixelated and tinted to match. See [docs/characters.md](docs/characters.md).
 
-## Genre packs
+## Genre packs — a future extension point
 
-The same session, rendered as:
-
-- 🕶️ **Heist** — *"THE JOB: 1 bug. 9 files. 47 minutes."*
-- 🌿 **Nature documentary** — *"Here we observe the agent, reading the same file for the fourth time. It has not lost hope."*
-- 🏟️ **Sports replay** — two commentators in the booth: *"he's going for the regex, Dave — bold choice."*
-- 👻 **Horror** — for the debugging sessions you'd rather forget.
-
-Genres are a strategy pattern over a fixed screenplay format: a pack is React components + a music track + an SFX map + a caption persona. Writing one is the fun, shallow-ramp way to contribute — see [docs/genre-packs.md](docs/genre-packs.md).
+`classic` is the only shipped pack and the permanent fallback; there's currently no second genre to pick between. The `GenrePack` interface (a costume: React components + a music track + an SFX map + a caption persona) stays in the tree as the seam a future pack would plug into — see [docs/genre-packs.md](docs/genre-packs.md).
 
 ## Usage
 
 ```bash
 npx sessionmovie doctor                        # first-run check (downloads the render browser once)
-npx sessionmovie path/to/session.jsonl         # classic pack, vertical, ~60s
-npx sessionmovie session.jsonl --genre quest   # pick a genre (unshipped genres render as classic)
+npx sessionmovie path/to/session.jsonl         # vertical, ~50s, no genre to pick
 npx sessionmovie session.jsonl --no-llm        # fast heuristic screenwriter, no claude call
 ```
 
@@ -59,7 +51,7 @@ The Claude Code skill (`/movie` — movie of the current session) is the planned
 
 ### Voiceover (optional)
 
-Narration via ElevenLabs, on your own API key. Off by default — nothing calls ElevenLabs unless you pass `--voiceover`.
+Narration via ElevenLabs, on your own API key, of **dialogue lines only** — title/action/stats scenes stay silent (see [docs/audio.md](docs/audio.md)). Off by default — nothing calls ElevenLabs unless you pass `--voiceover`.
 
 ```bash
 export ELEVENLABS_API_KEY=sk_...   # from elevenlabs.io → Developers → API keys
@@ -69,7 +61,7 @@ npx sessionmovie session.jsonl --voiceover
 
 **Key permissions matter.** A default full-access key just works. If you create a *restricted* key, it needs at least **Text to Speech** (synthesis) and **Voices: Read** (what `doctor` probes) — a fresh key that fails doctor with `HTTP 401` is almost always missing scopes, not a bad key.
 
-Knobs: `ELEVENLABS_VOICE_ID` forces one voice everywhere, `ELEVENLABS_VOICE_<GENRE>` (e.g. `ELEVENLABS_VOICE_QUEST`) overrides per genre, `ELEVENLABS_MODEL` picks the TTS model. Synthesized audio is cached content-addressed, so re-renders of the same screenplay don't re-bill. Cost: roughly $0.10–0.30 per movie-minute of narration.
+Knobs: `ELEVENLABS_VOICE_ID` forces one voice everywhere, `ELEVENLABS_MODEL` picks the TTS model. Per-speaker `ELEVENLABS_VOICE_USER`/`ELEVENLABS_VOICE_CLAUDE` arrive with the dialogue-only voiceover rewrite (docs/audio.md); until then, the single voice applies to everything. Synthesized audio is cached content-addressed, so re-renders of the same screenplay don't re-bill. Cost: roughly $0.10–0.30 per movie-minute of narration.
 
 ## Docs
 
@@ -77,10 +69,10 @@ Knobs: `ELEVENLABS_VOICE_ID` forces one voice everywhere, `ELEVENLABS_VOICE_<GEN
 |---|---|
 | [architecture.md](docs/architecture.md) | The four-stage pipeline and why the boundaries sit where they sit |
 | [screenplay-format.md](docs/screenplay-format.md) | The genre-neutral JSON IR — the project's load-bearing contract |
-| [genre-packs.md](docs/genre-packs.md) | The GenrePack interface and how to write one |
-| [visual-language.md](docs/visual-language.md) | Footage philosophy, the energy kit, characters, the stats card |
-| [audio.md](docs/audio.md) | Music/SFX rules (CC0, beat grids) and the ElevenLabs voiceover design |
-| [characters.md](docs/characters.md) | The two puppet characters — original mascot, SVG rig, emotion faces, tone rule |
+| [genre-packs.md](docs/genre-packs.md) | The GenrePack interface — a dormant extension point until a second pack ships |
+| [visual-language.md](docs/visual-language.md) | The no-genre look, the shared panel chrome, the energy kit, the stats card |
+| [audio.md](docs/audio.md) | Music/SFX rules (CC0, beat grids) and the dialogue-only ElevenLabs voiceover design |
+| [characters.md](docs/characters.md) | The two puppet characters — pixel-art mascot homage, avatar-head user, shared clip rig |
 | [v1-storychange.md](docs/v1-storychange.md) | Recognition first, dialogue is documentary, persona = tone, one voice at a time |
 | [distribution-and-cost.md](docs/distribution-and-cost.md) | CLI vs. skill, cost model, first-run UX |
 | [security-and-privacy.md](docs/security-and-privacy.md) | Secret redaction — a v1 blocker, not a nice-to-have |

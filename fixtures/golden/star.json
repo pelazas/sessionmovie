@@ -1,6 +1,5 @@
 {
   "fixture": "star.jsonl",
-  "autoGenre": "heist",
   "totals": {
     "turns": 1,
     "toolCalls": 32,
@@ -12,9 +11,12 @@
   },
   "result": {
     "kind": "screenplay",
-    "sceneCount": 4,
+    "sceneCount": 7,
     "sceneTypes": [
       "title",
+      "dialogue",
+      "action",
+      "action",
       "action",
       "showcase",
       "stats"

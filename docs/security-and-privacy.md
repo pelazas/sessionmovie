@@ -8,7 +8,7 @@ Therefore: **no string reaches a rendered frame without passing the redaction la
 
 ## The redaction layer
 
-Applied to every piece of displayable content (messages, tool inputs/outputs, diffs, command output, file paths):
+Applied to every piece of displayable content (messages, tool inputs/outputs, diffs, command output, file paths) — including, explicitly, every transcript-sourced field on a screenplay `ActionArtifact` (docs/screenplay-format.md): `file`, `command`, `summary`, `files[]`, `tasks[]`, and `snippet` are all redacted before they enter the IR, not just the diff snippet:
 
 1. **Secret-pattern regexes** — known key shapes (AWS `AKIA…`, GitHub `ghp_`/`gho_`, Slack, Stripe, JWTs, private key blocks, connection strings, `Authorization:` headers…). Start from trufflehog/gitleaks pattern sets.
 2. **Entropy detection** — high-entropy tokens above a length threshold that match no known pattern get masked as probable secrets.
@@ -20,6 +20,14 @@ Masked content renders as a styled `••••` chip — visibly redacted, not
 ## Preview before share
 
 The CLI's stance is **render → show → human eyeballs it**. Output lands locally; nothing is uploaded anywhere, ever, by this tool. The final gate is the user watching their own movie before posting it — the tool's job is to make that gate effective (visible redaction chips, a `--list-redactions` report of what was masked and why).
+
+## GitHub identity carve-out (the user's avatar head)
+
+The user's character head (docs/characters.md) is a raster image of their own public GitHub avatar, fetched at pipeline time and embedded as image data. This is a deliberate, narrow exception to string-redaction scope, not a hole in it:
+
+- Only the **avatar image itself** is fetched and embedded — a picture the user already made public on their own GitHub profile, resolved by the CLI (not inside a Remotion composition; no network calls from compositions, same rule as voiceover).
+- The GitHub **login or display name** is never rendered as on-screen text, anywhere, under any circumstance — only the pixelated image and its derived dominant-color tint reach a frame.
+- Every other transcript-sourced string — messages, diffs, command output, file paths — still passes through the full redaction layer (secret-pattern regexes, entropy detection, path/username scrubbing) unconditionally. The avatar carve-out covers exactly one image fetch of the user's own identity; it does not widen the redaction boundary anywhere else.
 
 ## Configuration
 

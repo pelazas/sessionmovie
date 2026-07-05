@@ -1,6 +1,5 @@
 {
   "fixture": "qa-only-notion-access.jsonl",
-  "autoGenre": "classic",
   "totals": {
     "turns": 1,
     "toolCalls": 0,

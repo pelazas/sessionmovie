@@ -1,8 +1,8 @@
 /**
- * Voiceover↔caption sync math — pure functions shared by the CLI (manifest
- * build, which imports this with a .js suffix like it does ../timing.js) and
- * the renderer (Caption via PackComposition plumbing). Lives on the renderer
- * side because webpack bundles it — extensionless imports only here.
+ * Voiceover↔caption sync math for the renderer (Caption via PackComposition
+ * plumbing). `wordsFromAlignment` lives in src/voiceover/sync-core.ts (the
+ * CLI needs it too, and never imports a renderer module) and is re-exported
+ * below for renderer-side consumers that import it from here.
  *
  * Principle (binding): measured narration is reality; captions adapt to it;
  * scene durations adapt to neither — the fit rule in manifest.ts is unchanged.
@@ -12,12 +12,12 @@
  */
 import type { Scene } from "../screenplay";
 import { CAPTION_RELEASE_END as RELEASE_END, captionInFrame, sceneFrames } from "../timing";
-import type {
-  CharacterAlignment,
-  SceneVoiceoverCue,
-  VoiceoverCue,
-  WordTiming,
-} from "../../../src/voiceover/types";
+import type { SceneVoiceoverCue, VoiceoverCue } from "../../../src/voiceover/types";
+// wordsFromAlignment moved to src/voiceover/sync-core.ts (CLI-side) so the
+// CLI never imports a renderer module — re-exported here so every
+// renderer-side consumer keeps working unchanged.
+import { wordsFromAlignment } from "../../../src/voiceover/sync-core";
+export { wordsFromAlignment };
 
 /** Caption fade-in length once its cue starts (frames). */
 export const CAPTION_IN_FRAMES = 8;
@@ -27,39 +27,6 @@ export const CAPTION_RELEASE_HOLD = 7;
  * Single source: timing.ts — dialogueLeadSchedule derives its bubble-train
  * release gap from the same constant. */
 export const CAPTION_RELEASE_END = RELEASE_END;
-
-/**
- * Group character-level alignment into word timings: a word spans its first
- * character's start to its last character's end; whitespace separates words.
- */
-export function wordsFromAlignment(alignment: CharacterAlignment | null): WordTiming[] {
-  if (!alignment) return [];
-  const { characters, character_start_times_seconds: starts, character_end_times_seconds: ends } =
-    alignment;
-  const words: WordTiming[] = [];
-  let word = "";
-  let firstIndex = -1;
-  const flush = (lastIndex: number) => {
-    if (!word) return;
-    words.push({
-      word,
-      startSec: starts[firstIndex] ?? 0,
-      endSec: ends[lastIndex] ?? starts[firstIndex] ?? 0,
-    });
-    word = "";
-    firstIndex = -1;
-  };
-  characters.forEach((ch, i) => {
-    if (/\s/.test(ch)) {
-      flush(i - 1);
-      return;
-    }
-    if (word === "") firstIndex = i;
-    word += ch;
-  });
-  flush(characters.length - 1);
-  return words;
-}
 
 /**
  * Resolve a manifest cue into SCENE-LOCAL frames. The start mirrors the audio

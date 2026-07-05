@@ -6,6 +6,11 @@ import type {
   StatsScene,
   TitleScene,
 } from "./screenplay";
+// sceneFrames moved to src/voiceover/sync-core.ts (CLI-side) so the CLI never
+// imports a renderer module — re-exported here so every renderer-side
+// consumer that imports it from "./timing"/"../timing"/etc. keeps working.
+import { sceneFrames } from "../../src/voiceover/sync-core";
+export { sceneFrames };
 
 /**
  * Frame math and per-scene schedules shared by every consumer — scene
@@ -14,9 +19,6 @@ import type {
  * (this module replaces the mirrored constants events.ts used to carry).
  * All values are scene-LOCAL frames unless a function takes the screenplay.
  */
-
-export const sceneFrames = (scene: Scene, fps: number): number =>
-  Math.max(1, Math.round(scene.targetSec * fps));
 
 export const totalFrames = (screenplay: Screenplay, fps: number): number =>
   screenplay.scenes.reduce((sum, s) => sum + sceneFrames(s, fps), 0);

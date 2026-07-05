@@ -9,13 +9,12 @@ const FPS = 30;
 function screenplayWith(targets: number[]): Screenplay {
   const total = targets.reduce((a, b) => a + b, 0);
   const screenplay = {
-    version: 1 as const,
+    version: 2 as const,
     sessionMeta: {},
     targetDurationSec: Math.min(60, Math.max(45, Math.round(total))),
     scenes: targets.map((targetSec, i) => ({
       type: "action" as const,
-      events: [{ tool: "Bash", summary: `step ${i}` }],
-      intensity: "steady" as const,
+      artifact: { kind: "command" as const, command: `step ${i}`, exitCode: 0 },
       targetSec,
     })),
   };

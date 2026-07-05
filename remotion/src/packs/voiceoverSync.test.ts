@@ -1,56 +1,26 @@
 /**
- * CI-safe tests for voiceover↔caption sync math: alignment→word grouping,
- * scene-local cue resolution, and the caption render state (context fallback).
- * Pure functions, no network, no DOM, no Remotion runtime.
+ * CI-safe tests for renderer-side voiceover↔caption sync math: scene-local
+ * cue resolution, the caption render state (context fallback), and the
+ * dialogue lead-in schedule. Pure functions, no network, no DOM, no Remotion
+ * runtime.
  *
- * Run: node --import tsx --test src/voiceover/sync.test.ts
+ * (Split from the old src/voiceover/sync.test.ts: wordsFromAlignment moved
+ * with its implementation to src/voiceover/sync-core.ts and is tested there —
+ * src/voiceover/sync-core.test.ts. This file stays here because sceneLocalCue,
+ * captionRenderState, and dialogueLeadSchedule depend on remotion/src/timing.ts,
+ * which the CLI (src/) must never import.)
+ *
+ * Run: node --import tsx --test remotion/src/packs/voiceoverSync.test.ts
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { Screenplay } from "../screenplay/schema.js";
-import type { SceneVoiceoverCue, VoiceoverCue } from "./types.js";
-import {
-  captionRenderState,
-  sceneLocalCue,
-  wordsFromAlignment,
-} from "../../remotion/src/packs/voiceoverSync.js";
-import {
-  CAPTION_RELEASE_END,
-  DIALOGUE_LEAD_RELEASE,
-  dialogueLeadSchedule,
-} from "../../remotion/src/timing.js";
-
-const tenth = (i: number) => Math.round(i * 100) / 1000; // exact 0.1 steps, no FP drift
-const alignmentFor = (text: string) => ({
-  characters: [...text],
-  character_start_times_seconds: [...text].map((_c, i) => tenth(i)),
-  character_end_times_seconds: [...text].map((_c, i) => tenth(i + 1)),
-});
-
-describe("wordsFromAlignment", () => {
-  it("groups characters into words on whitespace, timing from first/last char", () => {
-    const words = wordsFromAlignment(alignmentFor("hi you"));
-    assert.deepEqual(words, [
-      { word: "hi", startSec: 0, endSec: 0.2 },
-      { word: "you", startSec: 0.3, endSec: 0.6 },
-    ]);
-  });
-
-  it("keeps punctuation attached and survives double spaces", () => {
-    const words = wordsFromAlignment(alignmentFor("go,  now!"));
-    assert.equal(words.length, 2);
-    assert.equal(words[0]?.word, "go,");
-    assert.equal(words[1]?.word, "now!");
-  });
-
-  it("returns [] for null or empty alignment", () => {
-    assert.deepEqual(wordsFromAlignment(null), []);
-    assert.deepEqual(wordsFromAlignment(alignmentFor("")), []);
-  });
-});
+import type { Scene } from "../screenplay";
+import type { SceneVoiceoverCue, VoiceoverCue } from "../../../src/voiceover/types";
+import { captionRenderState, sceneLocalCue } from "./voiceoverSync";
+import { CAPTION_RELEASE_END, DIALOGUE_LEAD_RELEASE, dialogueLeadSchedule } from "../timing";
 
 /** A dialogue scene: captionIn = 6 — the lead-in beat (timing.ts, text economy). */
-const dialogueScene = (targetSec: number): Screenplay["scenes"][number] => ({
+const dialogueScene = (targetSec: number): Scene => ({
   type: "dialogue",
   lines: [{ speaker: "claude", text: "line", emotion: "neutral" }],
   targetSec,

@@ -1,6 +1,5 @@
 {
   "fixture": "code-review-readonly.jsonl",
-  "autoGenre": "classic",
   "totals": {
     "turns": 0,
     "toolCalls": 0,

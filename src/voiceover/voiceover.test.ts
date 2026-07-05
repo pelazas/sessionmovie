@@ -49,8 +49,7 @@ test("availableSecFor: the caption follows the cue — the window is the scene m
   // non-dialogue targetSec 10 → 300 frames − 6 lead-in → 9.8s window
   const action = {
     type: "action" as const,
-    events: [{ tool: "Bash", summary: "runs tests" }],
-    intensity: "steady" as const,
+    artifact: { kind: "command" as const, command: "npm test", exitCode: 0 },
     targetSec: 10,
   };
   assert.equal(Math.round(availableSecFor(action) * 100) / 100, 9.8);
@@ -68,7 +67,7 @@ test("fit rule ratio is the documented 0.9", () => {
 
 function screenplayWith(captions: Array<string | undefined>, targetSec = 10): Screenplay {
   return {
-    version: 1,
+    version: 2,
     sessionMeta: {},
     targetDurationSec: 50,
     scenes: captions.map((caption, i) => ({

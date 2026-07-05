@@ -1,6 +1,5 @@
 {
   "fixture": "code-review-bash-heavy.jsonl",
-  "autoGenre": "classic",
   "totals": {
     "turns": 0,
     "toolCalls": 0,

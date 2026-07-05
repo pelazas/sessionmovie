@@ -1,6 +1,5 @@
 {
   "fixture": "install-zellij-oneshot.jsonl",
-  "autoGenre": "classic",
   "totals": {
     "turns": 1,
     "toolCalls": 3,
@@ -12,9 +11,10 @@
   },
   "result": {
     "kind": "screenplay",
-    "sceneCount": 3,
+    "sceneCount": 4,
     "sceneTypes": [
       "title",
+      "dialogue",
       "action",
       "stats"
     ],

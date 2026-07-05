@@ -1,17 +1,17 @@
 {
-  "version": 1,
+  "version": 2,
   "sessionMeta": {
     "repo": "~/Desktop/checkout-service",
     "startedAt": "2026-07-04T09:12:00.000Z"
   },
-  "targetDurationSec": 52,
+  "targetDurationSec": 50,
   "scenes": [
     {
       "type": "title",
+      "headline": "the login is broken again",
       "task": "the login is broken again. please fix it.",
-      "coldOpen": { "description": "17 tests failing in auth.spec.ts" },
       "targetSec": 5,
-      "caption": "2 hours earlier…"
+      "caption": "the mission"
     },
     {
       "type": "dialogue",
@@ -23,58 +23,42 @@
     },
     {
       "type": "action",
-      "events": [
-        { "tool": "Read", "summary": "Read auth.ts", "ok": true },
-        { "tool": "Grep", "summary": "Grep \"session token\"", "ok": true },
-        { "tool": "Read", "summary": "Read session.ts", "ok": true },
-        { "tool": "Bash", "summary": "Bash: npm test → exit 1", "ok": false },
-        { "tool": "Read", "summary": "Read auth.spec.ts", "ok": true },
-        { "tool": "WebFetch", "summary": "WebFetch: jwt library changelog", "ok": true },
-        { "tool": "Edit", "summary": "Edit session.ts", "ok": true },
-        { "tool": "Bash", "summary": "Bash: npm test → exit 1", "ok": false },
-        { "tool": "Task", "summary": "Task: trace token expiry path", "ok": true },
-        { "tool": "Edit", "summary": "Edit auth.ts", "ok": true }
-      ],
-      "intensity": "montage",
+      "artifact": {
+        "kind": "edit",
+        "file": "src/auth/session.ts",
+        "added": 9,
+        "removed": 4,
+        "snippet": " export function verifySession(token: string) {\n-  const payload = jwt.verify(token, SECRET);\n-  return payload;\n+  const payload = jwt.verify(token, SECRET, {\n+    clockTolerance: 5,\n+  });\n+  if (isExpiringSoon(payload)) {\n+    return refreshSession(payload);\n+  }\n+  return payload;\n }"
+      },
       "targetSec": 12,
       "caption": "turn 4: this is fine."
     },
     {
-      "type": "showcase",
+      "type": "action",
       "artifact": {
-        "kind": "testRun",
+        "kind": "command",
         "command": "npm test",
         "exitCode": 1,
         "summary": "17 failing — TokenExpiredError: jwt expired"
       },
-      "verdict": "fail",
-      "targetSec": 6,
+      "targetSec": 12,
       "caption": "the wall"
     },
     {
       "type": "showcase",
       "artifact": {
-        "kind": "diff",
-        "file": "src/auth/session.ts",
-        "added": 9,
-        "removed": 4,
-        "snippet": " export function verifySession(token: string) {\n-  const payload = jwt.verify(token, SECRET);\n-  return payload;\n-  // TODO: handle refresh\n-  return null;\n+  const payload = jwt.verify(token, SECRET, {\n+    clockTolerance: 5,\n+  });\n+  if (isExpiringSoon(payload)) {\n+    return refreshSession(payload);\n+  }\n+  return payload;\n }"
+        "kind": "edit",
+        "file": "src/auth/auth.ts",
+        "added": 412,
+        "removed": 118,
+        "focus": { "start": 5, "end": 7 }
       },
-      "verdict": "pass",
-      "focus": { "start": 5, "end": 7 },
-      "targetSec": 12,
+      "targetSec": 9,
       "caption": "turn 12 — the bug reveals itself"
     },
     {
       "type": "stats",
-      "compressed": { "realDuration": "2h 14m", "movieDuration": "52s" },
-      "counts": { "files": 9, "added": 412, "removed": 118, "tools": 47 },
-      "achievements": [
-        { "id": "rage-quit-averted", "title": "Rage Quit Averted" },
-        { "id": "archaeologist", "title": "Archaeologist" }
-      ],
-      "grade": "B+",
-      "targetSec": 11,
+      "targetSec": 6,
       "caption": "made with sessionmovie"
     }
   ]

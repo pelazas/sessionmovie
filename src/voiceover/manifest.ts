@@ -12,12 +12,11 @@
  */
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { captionInFrame, sceneFrames } from "../../remotion/src/timing.js";
+import { sceneFrames, wordsFromAlignment } from "./sync-core.js";
 import type { Genre } from "../genre/rules.js";
 import type { Screenplay } from "../screenplay/schema.js";
 import { remotionDir } from "../cli/workspace.js";
 import { getOrSynthesize } from "./cache.js";
-import { wordsFromAlignment } from "../../remotion/src/packs/voiceoverSync.js";
 import { DEFAULT_VOICE_ID, type TTSConfig } from "./tts.js";
 
 import type { CharacterAlignment, VoiceoverCue, VoiceoverManifest } from "./types.js";
@@ -86,8 +85,6 @@ export function availableSecFor(scene: Screenplay["scenes"][number]): number {
   const window = Math.max(0, frames - MIN_LEAD_FRAMES) / FPS;
   return scene.type === "dialogue" ? window * DIALOGUE_NARRATION_SHARE : window;
 }
-void captionInFrame; // still used by the renderer-side clamp; kept for parity
-
 
 /** Measure audio duration with Remotion's bundled ffprobe (no new dependency). */
 export function probeDurationSec(absolutePath: string): number {

@@ -1,6 +1,5 @@
 {
   "fixture": "code-review-deep-read.jsonl",
-  "autoGenre": "classic",
   "totals": {
     "turns": 0,
     "toolCalls": 0,
