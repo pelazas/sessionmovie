@@ -7,7 +7,7 @@ import type {
   TitleScene,
 } from "../screenplay";
 import { createContext } from "react";
-import type { SceneVoiceoverCue, VoiceoverManifest } from "../../../src/voiceover/types";
+import type { SceneVoiceoverLineCue, VoiceoverManifest } from "../../../src/voiceover/types";
 
 /**
  * The GenrePack contract (docs/genre-packs.md), extracted at the second pack
@@ -43,12 +43,12 @@ export interface GenrePack {
   captionPersona: string;
 }
 
-// ── voiceover cue plumbing (feat/vo-sync) ────────────────────────────────────
+// ── dialogue voiceover plumbing (rewrite/voiceover-dialogue, PR-H) ──────────
 /**
- * The current scene's narration cue, provided by PackComposition and consumed
- * by Caption — scenes stay untouched. null = no cue (no --voiceover, caption
- * skipped by the fit rule, or captionless scene): Caption then behaves
- * exactly as before (schedule-driven).
+ * The current DIALOGUE scene's per-line narration track (scene-local frames),
+ * provided by PackComposition — null for every non-dialogue scene, or a
+ * dialogue scene with no --voiceover. Dialogue.tsx falls back to
+ * dialogueBubbleSchedule (the no-VO schedule) when null.
  */
-export const VoiceoverCueContext = createContext<SceneVoiceoverCue | null>(null);
-export type { SceneVoiceoverCue };
+export const DialogueTrackContext = createContext<SceneVoiceoverLineCue[] | null>(null);
+export type { SceneVoiceoverLineCue };

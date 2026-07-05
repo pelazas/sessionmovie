@@ -24,32 +24,35 @@ export interface WordTiming {
   endSec: number;
 }
 
-export interface VoiceoverCue {
-  /** Index into screenplay.scenes. */
+/** One dialogue line's narration (PR-H: per-line, not per-scene). */
+export interface VoiceoverLineCue {
   sceneIndex: number;
+  lineIndex: number;
+  speaker: "user" | "claude";
+  text: string;
   /** Path relative to remotion/public/ — feed straight to staticFile(). */
   file: string;
   durationSec: number;
-  /** The narrated text — what the caption displays word-by-word. */
-  text: string;
-  /** Absolute path of the cached character-timestamps sidecar (provenance/debug). */
+  /** Public-relative like `file` — absolute host paths would embed the local
+   * username in shareable props sidecars and break cross-machine reproducibility. */
   timestampsFile: string;
   /** Word timings precomputed from the sidecar; [] when alignment was absent. */
   words: WordTiming[];
 }
 
 export interface VoiceoverManifest {
-  cues: VoiceoverCue[];
+  lineCues: VoiceoverLineCue[];
 }
 
 /**
- * A cue resolved into SCENE-LOCAL frames for the renderer — precomputed once
- * per scene (src/voiceover/sync.ts sceneLocalCue), looked up per frame.
+ * A line cue resolved into SCENE-LOCAL frames for the renderer — precomputed
+ * once per scene (remotion/src/packs/voiceoverSync.ts sceneLocalTrack).
  */
-export interface SceneVoiceoverCue {
-  /** Scene-local frame narration (and the caption) starts. */
+export interface SceneVoiceoverLineCue {
+  lineIndex: number;
+  /** Scene-local frame this line's narration (and bubble) starts. */
   startFrame: number;
-  /** Scene-local frame narration ends. */
+  /** Scene-local frame this line's narration ends. */
   endFrame: number;
   words: Array<{ text: string; startFrame: number; endFrame: number }>;
 }

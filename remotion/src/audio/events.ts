@@ -5,11 +5,12 @@ import { artifactSchedule, sceneFrames, titleSchedule } from "../timing";
 // All schedules come from src/timing.ts — the same module the scene
 // components read — so audio and picture cannot drift apart.
 
-// SfxKind stays exactly as-is (thock|tick|pass|fail|whoosh|drone|stinger) so
-// ClassicAudio's SHARED_SFX/SHARED_SFX_VOLUMES maps need no change — this PR
-// just stops EMITTING drone (no more fail-streak concept in the v2 artifact
-// shape: a single command either exits 0 or it doesn't).
-export type SfxKind = "thock" | "tick" | "pass" | "fail" | "whoosh" | "drone" | "stinger";
+// `drone` (the fail-streak tension cue) dropped: nothing has emitted it
+// since PR-E (v2's single artifact shape has no fail-streak concept — a
+// command either exits 0 or it doesn't), so it was dead-but-type-correct
+// until now. Removing it here means ClassicAudio's SHARED_SFX/
+// SHARED_SFX_VOLUMES maps drop their entry too (same commit).
+export type SfxKind = "thock" | "tick" | "pass" | "fail" | "whoosh" | "stinger";
 export type SfxCue = {
   kind: SfxKind;
   frame: number;

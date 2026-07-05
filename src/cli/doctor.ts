@@ -76,6 +76,17 @@ if (!elevenLabsKey) {
   const keyCheck = await checkApiKey(elevenLabsKey);
   if (keyCheck.ok) {
     ok("ELEVENLABS_API_KEY accepted by ElevenLabs");
+    const userVoice = process.env["ELEVENLABS_VOICE_USER"];
+    const claudeVoice = process.env["ELEVENLABS_VOICE_CLAUDE"];
+    if (userVoice || claudeVoice) {
+      ok(
+        `per-speaker voices: user=${userVoice ?? "(default)"}, claude=${claudeVoice ?? "(default)"}`,
+      );
+    } else {
+      process.stdout.write(
+        "- per-speaker voices: none set — user and claude will share one voice (ELEVENLABS_VOICE_USER / ELEVENLABS_VOICE_CLAUDE to differentiate)\n",
+      );
+    }
   } else if (keyCheck.kind === "invalid") {
     bad(
       `ELEVENLABS_API_KEY rejected by ElevenLabs (${keyCheck.detail})`,

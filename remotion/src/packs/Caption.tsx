@@ -1,26 +1,16 @@
-import { useContext } from "react";
-import { useCurrentFrame } from "remotion";
 import { theme } from "../theme";
-import { VoiceoverCueContext } from "./types";
-import { captionRenderState } from "./voiceoverSync";
 
 /**
- * Editorial caption pinned to the bottom of a scene.
- *
- * With a narration cue in context (feat/vo-sync): measured narration is
- * reality — the caption appears when the cue starts, highlights word-by-word
- * from the cached timestamps, and releases within ~15 frames of narration
- * end. The scene's `opacity` prop is ignored in that mode; scene components
- * stay untouched. Without a cue: exactly the schedule-driven behavior.
+ * Editorial caption pinned to the bottom of a scene — plain schedule-driven
+ * fade via the `opacity` prop the caller computed. Dialogue scenes never
+ * render this (the bubble is the caption, rewrite/voiceover-dialogue PR-H);
+ * every other scene type's caption is silent editorial text, no narration.
  */
 export const Caption: React.FC<{ text: string; opacity: number }> = ({
   text,
   opacity,
 }) => {
-  const cue = useContext(VoiceoverCueContext);
-  const frame = useCurrentFrame();
-  const state = captionRenderState(cue, frame, opacity);
-  if (state.opacity <= 0) return null;
+  if (opacity <= 0) return null;
 
   return (
     <div
@@ -34,18 +24,11 @@ export const Caption: React.FC<{ text: string; opacity: number }> = ({
         fontSize: 38,
         fontStyle: "italic",
         color: theme.textPrimary,
-        opacity: state.opacity,
+        opacity,
         padding: "0 80px",
       }}
     >
-      {state.mode === "sync" && state.words && state.words.length > 0
-        ? state.words.map((word, i) => (
-            <span key={i} style={{ color: word.spoken ? theme.textPrimary : theme.textDim }}>
-              {i > 0 ? " " : ""}
-              {word.text}
-            </span>
-          ))
-        : text}
+      {text}
     </div>
   );
 };
