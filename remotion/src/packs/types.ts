@@ -10,9 +10,10 @@ import { createContext } from "react";
 import type { SceneVoiceoverCue, VoiceoverManifest } from "../../../src/voiceover/types";
 
 /**
- * The GenrePack contract (docs/genre-packs.md), extracted at the second
- * consumer (quest — issue #9). A pack renders every scene type; that is
- * what keeps packs interchangeable and the screenwriter genre-blind.
+ * The GenrePack contract (docs/genre-packs.md), extracted at the second pack
+ * (issue #9, since removed — docs/genre-packs.md "Extraction status"). A pack
+ * renders every scene type; that is what keeps packs interchangeable and the
+ * screenwriter genre-blind.
  */
 
 /** Props every pack scene component receives — same shape for all types. */

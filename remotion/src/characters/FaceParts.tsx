@@ -3,9 +3,10 @@ import { theme } from "../theme";
 
 /**
  * Shared face-part kit (issue #13). Both characters' 7-emotion tables were
- * near-identical shapes with per-character geometry; a third character (quest
- * reskins) would have copied them again. The kit owns the shared structure
- * (stroke widths, linecaps, colors); characters supply only geometry.
+ * near-identical shapes with per-character geometry; a third character (a
+ * second genre pack's reskin) would have copied them again. The kit owns the
+ * shared structure (stroke widths, linecaps, colors); characters supply only
+ * geometry.
  */
 
 /** The yellow "?" that floats off a confused face. */

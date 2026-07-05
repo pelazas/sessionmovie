@@ -14,24 +14,23 @@ import { remotionCliInstalled, runRemotion } from "./workspace.js";
 // voiceover integration (feat/voiceover)
 import { buildVoiceoverManifest } from "../voiceover/manifest.js";
 import { ttsConfigFromEnv } from "../voiceover/tts.js";
-// genre auto-pick block (feat/genre-rules, issue #10)
-import { compositionFor } from "../genre/compositions.js";
-// ── T5 pipeline wiring: beat-quantize → TTS (punch-up retired with the quest pack) ──
-import { BEATS as CLASSIC_BEATS } from "../../remotion/src/audio/beatData.js";
-import { BEATS as QUEST_BEATS } from "../../remotion/src/audio/questBeatData.js";
+// ── T5 pipeline wiring: beat-quantize → TTS (punch-up retired, docs/genre-packs.md) ──
+import { BEATS } from "../../remotion/src/audio/beatData.js";
 import { quantizeToBeats } from "../quantize.js";
 import { voiceForGenre } from "../voiceover/manifest.js";
-import { GENRES, isGenre, pickGenre, signalsFrom, type Genre } from "../genre/rules.js";
+import type { Genre } from "../genre/rules.js";
 import { buildSessionFacts, pickFactTiles } from "../facts/facts.js";
 import { sceneTimesFor } from "../facts/sceneTimes.js";
 // GitHub identity pipeline (rewrite/identity, PR-F)
 import { resolveUserIdentity } from "../identity/index.js";
-import type { Timeline } from "../parser/types.js";
 
 // Matches the composition (remotion/src/Root.tsx + Classic.tsx): 30fps, each
 // scene rounds targetSec to whole frames. Keep in sync so the printed duration
 // is the real one, not the screenplay's nominal target.
 const FPS = 30;
+// No genre picker anymore (docs/genre-packs.md): classic is the only pack.
+const COMPOSITION_ID = "Classic";
+const genre: Genre = "classic";
 
 function movieDurationSec(screenplay: Screenplay): number {
   const frames = screenplay.scenes.reduce(
@@ -43,7 +42,7 @@ function movieDurationSec(screenplay: Screenplay): number {
 
 function usage(): never {
   process.stderr.write(
-    "usage: sessionmovie <transcript.jsonl> [--out movie.mp4] [--genre <id>] [--keep-screenplay] [--no-llm] [--voiceover] [--refresh-voices] [--screenplay <file>]\n" +
+    "usage: sessionmovie <transcript.jsonl> [--out movie.mp4] [--keep-screenplay] [--no-llm] [--voiceover] [--refresh-voices] [--screenplay <file>]\n" +
       "       sessionmovie doctor — check setup (node, remotion, browser, voiceover key)\n" +
       "       sessionmovie prompt <transcript.jsonl> — print the screenwriter prompt (skill path)\n",
   );
@@ -56,38 +55,6 @@ function fail(message: string): never {
 }
 
 const args = process.argv.slice(2);
-
-// ── genre auto-pick block (feat/genre-rules, issue #10) ─────────────────────
-// --genre <id> always wins (Layer 2, docs/genre-packs.md); otherwise the
-// deterministic rules table picks from the session shape (Layer 1) and the
-// pick is printed so it's explainable. Unshipped genres render as classic.
-// The flag is extracted here, BEFORE the main flag loop, so the loop below
-// stays untouched.
-let genreOverride: Genre | undefined;
-const genreFlagAt = args.indexOf("--genre");
-if (genreFlagAt !== -1) {
-  const id = args[genreFlagAt + 1];
-  if (!id || id.startsWith("-")) usage();
-  if (!isGenre(id)) {
-    fail(`unknown genre '${id}' — known genres: ${GENRES.join(", ")}`);
-  }
-  genreOverride = id;
-  args.splice(genreFlagAt, 2);
-}
-/** Genre + composition for the timeline; prints the one explainable line. */
-function resolveGenreComposition(timeline: Timeline): { compositionId: string; genre: Genre } {
-  const pick = genreOverride
-    ? { genre: genreOverride, reason: "--genre override, auto-pick skipped" }
-    : pickGenre(signalsFrom(timeline));
-  const { compositionId, shipped } = compositionFor(pick.genre);
-  process.stdout.write(
-    `   genre: ${pick.genre} (${pick.reason})` +
-      (shipped ? "" : ` → rendering classic (${pick.genre} not shipped yet)`) +
-      "\n",
-  );
-  return { compositionId, genre: pick.genre };
-}
-// ── end genre auto-pick block ───────────────────────────────────────────────
 
 let input: string | undefined;
 let out = "movie.mp4";
@@ -140,7 +107,6 @@ try {
 }
 
 const timeline = parseTranscript(jsonl);
-const { compositionId: genreComposition, genre } = resolveGenreComposition(timeline); // genre auto-pick block (issue #10)
 // LLM screenwriter is the default (real narrative, funny captions); it falls
 // back to the heuristic on its own when `claude` is missing or attempts fail.
 let result;
@@ -190,14 +156,13 @@ let screenplay = validated.data;
 // ── T5 pipeline: beat quantize (punch-up retired until a second genre pack
 // exists — docs/genre-packs.md) ─────────────────────────────────────────────
 {
-  const beats = genreComposition === "Quest" ? QUEST_BEATS : CLASSIC_BEATS;
-  const quantized = quantizeToBeats(screenplay, [...beats], FPS);
+  const quantized = quantizeToBeats(screenplay, [...BEATS], FPS);
   const nudged = quantized.scenes.filter(
     (sc, i) => sc.targetSec !== screenplay.scenes[i]?.targetSec,
   ).length;
   process.stdout.write(
     nudged > 0
-      ? `   beat-sync: ${nudged} scene cut(s) snapped to the ${genreComposition} grid\n`
+      ? `   beat-sync: ${nudged} scene cut(s) snapped to the ${COMPOSITION_ID} grid\n`
       : "   beat-sync: cuts already on the grid\n",
   );
   screenplay = quantized;
@@ -228,7 +193,7 @@ if (voiceover) {
   try {
     const stats = await buildVoiceoverManifest(screenplay, ttsConfig, {
       refresh: refreshVoices,
-      genre, // per-genre voice (T5 wiring — Daniel narrates quest)
+      genre, // genre-keyed voice lookup (docs/genre-packs.md) — always "classic" for now
     });
     process.stdout.write(
       `   voiceover: ${stats.manifest.cues.length} cue(s) — ${stats.apiCalls} API call(s), ` +
@@ -285,7 +250,7 @@ process.stdout.write("   rendering with Remotion (first run may take a few minut
 const code = await runRemotion([
   "render",
   "src/index.ts",
-  genreComposition, // genre auto-pick block (issue #10) — was hardcoded "Classic"
+  COMPOSITION_ID,
   outPath,
   `--props=${screenplayPath}`,
 ]);

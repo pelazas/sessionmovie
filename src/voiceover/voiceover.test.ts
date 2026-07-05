@@ -171,13 +171,12 @@ test("manifest: a corrupt/missing sidecar degrades to words: [] (no highlight)",
 });
 
 test("voiceForGenre: map defaults, per-genre env override, global env wins", async () => {
-  const { voiceForGenre, VOICE_BY_GENRE, QUEST_VOICE_ID } = await import("./manifest.js");
+  const { voiceForGenre, VOICE_BY_GENRE } = await import("./manifest.js");
   assert.equal(voiceForGenre("classic", {}), VOICE_BY_GENRE.classic);
-  assert.equal(voiceForGenre("quest", {}), QUEST_VOICE_ID);
-  assert.equal(voiceForGenre("quest", { ELEVENLABS_VOICE_QUEST: "v-q" }), "v-q");
+  assert.equal(voiceForGenre("nature-doc", {}), VOICE_BY_GENRE["nature-doc"]);
   assert.equal(voiceForGenre("nature-doc", { ELEVENLABS_VOICE_NATURE_DOC: "v-n" }), "v-n");
   assert.equal(
-    voiceForGenre("quest", { ELEVENLABS_VOICE_QUEST: "v-q", ELEVENLABS_VOICE_ID: "v-all" }),
+    voiceForGenre("nature-doc", { ELEVENLABS_VOICE_NATURE_DOC: "v-n", ELEVENLABS_VOICE_ID: "v-all" }),
     "v-all",
   );
 });
@@ -248,8 +247,11 @@ test("manifest: genre option swaps the synthesis voice; omitted keeps config", a
     probe: () => 1,
     readAlignment: () => null,
   };
-  await buildVoiceoverManifest(screenplayWith(["a"]), CONFIG, { ...mock, genre: "quest", env: {} });
+  await buildVoiceoverManifest(screenplayWith(["a"]), CONFIG, {
+    ...mock,
+    genre: "nature-doc",
+    env: { ELEVENLABS_VOICE_NATURE_DOC: "v-nature" },
+  });
   await buildVoiceoverManifest(screenplayWith(["a"]), CONFIG, mock);
-  const { QUEST_VOICE_ID } = await import("./manifest.js");
-  assert.deepEqual(voices, [QUEST_VOICE_ID, "voice-a"]);
+  assert.deepEqual(voices, ["v-nature", "voice-a"]);
 });
