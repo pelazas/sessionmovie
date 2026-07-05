@@ -3,19 +3,27 @@
  * and genre packs. See docs/screenplay-format.md (the doc and this file
  * change together, in the same PR, or not at all).
  *
+ * v2: artifacts are a single discriminated union (edit | command | create |
+ * subagents) shared by action and showcase scenes. Stats carries no numbers —
+ * they ride the CLI's facts sidecar instead, so the renderer never derives a
+ * number and the LLM never invents one.
+ *
  * FROZEN: scene vocabulary and emotion enum are closed. Adding a scene type
  * multiplies work for every genre pack; adding an emotion grows the sprite
  * art budget. Don't.
  */
 import { z } from "zod";
 
-export const SCREENPLAY_VERSION = 1 as const;
+export const SCREENPLAY_VERSION = 2 as const;
 
 /** Duration budget tolerance: scene targets must sum to within ±10% of targetDurationSec. */
 export const DURATION_TOLERANCE = 0.1;
 
 /** Dialogue lines are condensed, never verbatim. */
 export const MAX_DIALOGUE_CHARS = 90;
+
+/** Dialogue line budget across the whole screenplay. */
+export const MAX_DIALOGUE_LINES = 6;
 
 export const EmotionSchema = z.enum([
   "neutral",
@@ -28,73 +36,60 @@ export const EmotionSchema = z.enum([
 ]);
 export type Emotion = z.infer<typeof EmotionSchema>;
 
-export const ToolEventSchema = z.object({
-  tool: z.string().min(1),
-  /** One-line human summary, e.g. `Read auth.ts`, `npm test → exit 1`. */
-  summary: z.string().min(1).max(120),
-  /** false for failed commands / errored tool calls; omitted when unknown. */
-  ok: z.boolean().optional(),
-});
-export type ToolEvent = z.infer<typeof ToolEventSchema>;
-
 export const LineRangeSchema = z.object({
   start: z.number().int().nonnegative(),
   end: z.number().int().nonnegative(),
 });
 export type LineRange = z.infer<typeof LineRangeSchema>;
 
-export const DiffArtifactSchema = z.object({
-  kind: z.literal("diff"),
+export const EditArtifactSchema = z.object({
+  kind: z.literal("edit"),
   file: z.string().min(1),
   added: z.number().int().nonnegative(),
   removed: z.number().int().nonnegative(),
-  /** Redacted excerpt of the diff, unified-format lines. */
+  /** Redacted unified-diff excerpt — redacted BEFORE it enters the IR. */
   snippet: z.string().optional(),
+  focus: LineRangeSchema.optional(),
 });
 
-export const TestRunArtifactSchema = z.object({
-  kind: z.literal("testRun"),
+export const CommandArtifactSchema = z.object({
+  kind: z.literal("command"),
   command: z.string().min(1),
   exitCode: z.number().int(),
   summary: z.string().max(200).optional(),
 });
 
-export const ScreenshotArtifactSchema = z.object({
-  kind: z.literal("screenshot"),
-  path: z.string().min(1),
+export const CreateArtifactSchema = z.object({
+  kind: z.literal("create"),
+  files: z.array(z.string().min(1)).min(1).max(12),
 });
 
-export const ArtifactSchema = z.discriminatedUnion("kind", [
-  DiffArtifactSchema,
-  TestRunArtifactSchema,
-  ScreenshotArtifactSchema,
+export const SubagentsArtifactSchema = z.object({
+  kind: z.literal("subagents"),
+  tasks: z.array(z.string().min(1).max(60)).min(1).max(8),
+});
+
+export const ActionArtifactSchema = z.discriminatedUnion("kind", [
+  EditArtifactSchema,
+  CommandArtifactSchema,
+  CreateArtifactSchema,
+  SubagentsArtifactSchema,
 ]);
-export type Artifact = z.infer<typeof ArtifactSchema>;
-
-/** Reference to the most dramatic moment, shown before the title card. */
-export const ShowcaseRefSchema = z.object({
-  description: z.string().min(1).max(120),
-});
-export type ShowcaseRef = z.infer<typeof ShowcaseRefSchema>;
-
-export const AchievementSchema = z.object({
-  id: z.string().min(1),
-  title: z.string().min(1).max(60),
-});
-export type Achievement = z.infer<typeof AchievementSchema>;
+export type ActionArtifact = z.infer<typeof ActionArtifactSchema>;
 
 /** Fields shared by every scene: per-scene duration target and optional editorial caption. */
 const sceneBase = {
   targetSec: z.number().positive(),
-  /** Editorial caption; the punch-up pass may rewrite it (text only, never structure). */
+  /** Editorial caption (text only, never structure). */
   caption: z.string().max(120).optional(),
 };
 
 export const TitleSceneSchema = z.object({
   type: z.literal("title"),
+  /** The session's mission, one line. */
+  headline: z.string().min(1).max(80),
   /** The user's mission, condensed. */
   task: z.string().min(1).max(120),
-  coldOpen: ShowcaseRefSchema.optional(),
   ...sceneBase,
 });
 
@@ -114,36 +109,18 @@ export const DialogueSceneSchema = z.object({
 
 export const ActionSceneSchema = z.object({
   type: z.literal("action"),
-  events: z.array(ToolEventSchema).min(1),
-  /** montage = hyper-speed, beat-synced. */
-  intensity: z.enum(["montage", "steady"]),
+  artifact: ActionArtifactSchema,
   ...sceneBase,
 });
 
 export const ShowcaseSceneSchema = z.object({
   type: z.literal("showcase"),
-  artifact: ArtifactSchema,
-  verdict: z.enum(["fail", "pass", "reveal"]),
-  /** The lines to enlarge in slow-mo. */
-  focus: LineRangeSchema.optional(),
+  artifact: ActionArtifactSchema,
   ...sceneBase,
 });
 
 export const StatsSceneSchema = z.object({
   type: z.literal("stats"),
-  compressed: z.object({
-    realDuration: z.string().min(1),
-    movieDuration: z.string().min(1),
-  }),
-  counts: z.object({
-    files: z.number().int().nonnegative(),
-    added: z.number().int().nonnegative(),
-    removed: z.number().int().nonnegative(),
-    tools: z.number().int().nonnegative(),
-  }),
-  achievements: z.array(AchievementSchema),
-  /** Slightly judgmental, deliberately. */
-  grade: z.string().max(3).optional(),
   ...sceneBase,
 });
 
@@ -175,6 +152,18 @@ export const ScreenplaySchema = z
         code: z.ZodIssueCode.custom,
         path: ["scenes"],
         message: `scene targetSec values sum to ${sum}s, outside ±${tolerance}s of targetDurationSec (${screenplay.targetDurationSec}s)`,
+      });
+    }
+
+    const dialogueLines = screenplay.scenes.reduce(
+      (n, s) => n + (s.type === "dialogue" ? s.lines.length : 0),
+      0,
+    );
+    if (dialogueLines > MAX_DIALOGUE_LINES) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["scenes"],
+        message: `dialogue lines sum to ${dialogueLines}, over the budget of ${MAX_DIALOGUE_LINES}`,
       });
     }
   });
