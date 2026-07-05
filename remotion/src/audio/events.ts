@@ -1,13 +1,16 @@
-import type { Screenplay } from "../screenplay";
-import { actionSchedule, sceneFrames, showcaseSchedule, titleSchedule } from "../timing";
+import type { ActionArtifact, Screenplay } from "../screenplay";
+import { artifactSchedule, sceneFrames, titleSchedule } from "../timing";
 
 // Derives every SFX cue frame from the screenplay with pure frame math.
 // All schedules come from src/timing.ts — the same module the scene
 // components read — so audio and picture cannot drift apart.
 
-// feat/effects additive kinds: whoosh (scene cuts), drone (action fail
-// streak), stinger (stats open). Cue derivation stays schedule-driven.
-export type SfxKind = "thock" | "tick" | "fail" | "pass" | "whoosh" | "drone" | "stinger";
+// `drone` (the fail-streak tension cue) dropped: nothing has emitted it
+// since PR-E (v2's single artifact shape has no fail-streak concept — a
+// command either exits 0 or it doesn't), so it was dead-but-type-correct
+// until now. Removing it here means ClassicAudio's SHARED_SFX/
+// SHARED_SFX_VOLUMES maps drop their entry too (same commit).
+export type SfxKind = "thock" | "tick" | "pass" | "fail" | "whoosh" | "stinger";
 export type SfxCue = {
   kind: SfxKind;
   frame: number;
@@ -23,38 +26,34 @@ const titleCues = (
   start: number,
   durationInFrames: number,
 ): SfxCue[] => {
-  const { coldOpenFrames, typingStart, typingEnd } = titleSchedule(scene, durationInFrames);
+  const { typingStart, typingEnd } = titleSchedule(scene, durationInFrames);
   const cues: SfxCue[] = [];
   // One thock per ~4 frames of typing reads as keystrokes without machine-gunning.
   for (let f = typingStart; f < typingEnd; f += 4) {
-    cues.push({ kind: "thock", frame: start + coldOpenFrames + Math.round(f) });
+    cues.push({ kind: "thock", frame: start + Math.round(f) });
   }
   return cues;
 };
 
-/**
- * A tick as each tool chip lands, plus (feat/effects) a tension drone when a
- * fail streak opens: the first ok:false chip whose successor is also ok:false.
- * chipLanded() stays the single landing source of truth — the visual speed
- * ramp compresses slide-in durations, never landing frames.
- */
-const actionCues = (
-  scene: Extract<Screenplay["scenes"][number], { type: "action" }>,
-  start: number,
-  durationInFrames: number,
-): SfxCue[] => {
-  const { chipLanded } = actionSchedule(scene, durationInFrames);
-  const cues: SfxCue[] = scene.events.map((_e, i) => ({
-    kind: "tick" as const,
-    frame: start + Math.round(chipLanded(i)),
-  }));
-  const streakStart = scene.events.findIndex(
-    (e, i) => e.ok === false && scene.events[i + 1]?.ok === false,
-  );
-  if (streakStart >= 0) {
-    const droneFrame = start + Math.round(chipLanded(streakStart));
-    // The 5s drone must die at the scene cut, not bleed into the next scene.
-    cues.push({ kind: "drone", frame: droneFrame, maxFrames: start + durationInFrames - droneFrame });
+/** SFX for a single action/showcase artifact: thocks while typing, ticks per
+ * created file / spawned subagent, and a pass/fail chime at the reveal for a
+ * command's exit code (v2 has no other pass/fail signal). */
+const artifactCues = (artifact: ActionArtifact, start: number, durationInFrames: number): SfxCue[] => {
+  const { typeStart, typeEnd, revealStart } = artifactSchedule(durationInFrames);
+  const cues: SfxCue[] = [];
+  if (artifact.kind === "edit" || artifact.kind === "command") {
+    for (let f = typeStart; f < typeEnd; f += 4) {
+      cues.push({ kind: "thock", frame: start + Math.round(f) });
+    }
+  }
+  if (artifact.kind === "create" || artifact.kind === "subagents") {
+    const n = artifact.kind === "create" ? artifact.files.length : artifact.tasks.length;
+    for (let i = 0; i < n; i++) {
+      cues.push({ kind: "tick", frame: start + typeStart + i * 8 });
+    }
+  }
+  if (artifact.kind === "command") {
+    cues.push({ kind: artifact.exitCode === 0 ? "pass" : "fail", frame: start + revealStart });
   }
   return cues;
 };
@@ -65,21 +64,21 @@ export const collectCues = (screenplay: Screenplay, fps: number): SfxCue[] => {
   let start = 0;
   for (const [index, scene] of screenplay.scenes.entries()) {
     const frames = sceneFrames(scene, fps);
-    // feat/effects: transition whoosh at every scene handoff (matches the
-    // 4-frame visual transition in PackComposition), end stinger when the
-    // stats card opens. Both derive from the same frame math as the picture.
+    // Transition whoosh at every scene handoff (matches the 4-frame visual
+    // transition in PackComposition); end stinger when the stats card opens.
+    // Both derive from the same frame math as the picture.
     if (index > 0) cues.push({ kind: "whoosh", frame: start }); // matches the flash peak on the cut
     switch (scene.type) {
       case "title":
         cues.push(...titleCues(scene, start, frames));
         break;
       case "action":
-        cues.push(...actionCues(scene, start, frames));
+        cues.push(...artifactCues(scene.artifact, start, frames));
         break;
       case "showcase": {
-        const { verdictStart } = showcaseSchedule(frames);
-        if (scene.verdict === "fail") cues.push({ kind: "fail", frame: start + verdictStart });
-        if (scene.verdict === "pass") cues.push({ kind: "pass", frame: start + verdictStart });
+        const { revealStart } = artifactSchedule(frames);
+        cues.push({ kind: "pass", frame: start + revealStart });
+        cues.push(...artifactCues(scene.artifact, start, frames));
         break;
       }
       case "stats":

@@ -1,16 +1,16 @@
 import { AbsoluteFill, Series, useCurrentFrame, useVideoConfig } from "remotion";
-import type { FactTile } from "../../../src/facts/types";
+import type { StatCard, TitleMeta } from "../../../src/facts/types";
+import type { UserIdentity } from "../../../src/identity/types";
 import type { VoiceoverManifest } from "../../../src/voiceover/types";
+import { DEFAULT_IDENTITY, IdentityContext } from "../characters/identity";
 import { SceneTimeContext } from "./ClockChip";
-import { FactTilesContext } from "./FactTiles";
-import { sceneLocalCue } from "./voiceoverSync";
+import { CompressionContext, StatCardsContext, TitleMetaContext } from "./sidecars";
+import { sceneLocalTrack } from "./voiceoverSync";
 import type { Scene, Screenplay } from "../screenplay";
-import { flash } from "../effects";
+import { theme } from "../theme";
+import { flash } from "../motion";
 import { sceneCutFrames, sceneFrames } from "../timing";
-import { VoiceoverCueContext, type GenrePack } from "./types";
-
-/** Stable default so a missing sidecar never churns the context value. */
-const EMPTY_TILES: FactTile[] = [];
+import { DialogueTrackContext, type GenrePack } from "./types";
 
 /**
  * One composition body shared by every pack: audio layer + a Series of
@@ -40,11 +40,10 @@ export const makePackComposition = (pack: GenrePack): React.FC<Screenplay> => {
   };
 
   // ── scene-transitions block (feat/effects) ────────────────────────────────
-  // A 4-frame flash/whip at every scene handoff, per-pack flavored: classic
-  // is a cold shutter, quest a torch flicker. Cut FRAMES come from the shared
-  // sceneCutFrames (beat-aligned upstream by the CLI quantizer) — no timing
-  // logic of our own. The whoosh SFX cue in audio/events.ts fires at the
-  // same frames.
+  // A 4-frame flash/whip at every scene handoff: a cold shutter. Cut FRAMES
+  // come from the shared sceneCutFrames (beat-aligned upstream by the CLI
+  // quantizer) — no timing logic of our own. The whoosh SFX cue in
+  // audio/events.ts fires at the same frames.
   const CutTransitions: React.FC<{ screenplay: Screenplay }> = ({ screenplay }) => {
     const frame = useCurrentFrame();
     const { fps } = useVideoConfig();
@@ -55,14 +54,11 @@ export const makePackComposition = (pack: GenrePack): React.FC<Screenplay> => {
       opacity = Math.max(opacity, flash(frame, cut, 4));
     }
     if (opacity === 0) return null;
-    const torch = pack.id === "quest";
-    // Torch flicker: deterministic frame-sine shimmer; shutter: clean decay.
-    const flicker = torch ? 0.75 + 0.25 * Math.sin(frame * 2.1) : 1;
     return (
       <AbsoluteFill
         style={{
-          backgroundColor: torch ? "#ff8c42" : "#dfe7f0",
-          opacity: opacity * (torch ? 0.8 : 0.85) * flicker,
+          backgroundColor: theme.accentSoft,
+          opacity: opacity * 0.85,
           pointerEvents: "none",
         }}
       />
@@ -74,38 +70,55 @@ export const makePackComposition = (pack: GenrePack): React.FC<Screenplay> => {
     Screenplay & {
       voiceover?: VoiceoverManifest;
       sceneTimes?: (string | null)[];
-      factTiles?: FactTile[];
+      statCards?: StatCard[];
+      compressionLine?: string;
+      titleMeta?: TitleMeta;
+      // identity sidecar (rewrite/identity, PR-F): consumed by the character
+      // rig via IdentityContext.
+      identity?: UserIdentity;
     }
   > = (screenplay) => {
     const { fps } = useVideoConfig();
     return (
       <AbsoluteFill style={{ backgroundColor: pack.background }}>
-        {/* factTiles sidecar (feat/session-facts): pre-formatted stat tiles,
-            consumed by the stats scene via useFactTiles. */}
-        <FactTilesContext.Provider value={screenplay.factTiles ?? EMPTY_TILES}>
+        {/* no-genre sidecars (PR-G data, PR-E consumption): identity for the
+            character rig, statCards/compressionLine/titleMeta for the stats
+            and title scenes. factTiles/achievements/grade are retired — the
+            same numbers now live in statCards. */}
+        <IdentityContext.Provider value={screenplay.identity ?? DEFAULT_IDENTITY}>
+        <StatCardsContext.Provider value={screenplay.statCards ?? []}>
+        <TitleMetaContext.Provider value={screenplay.titleMeta ?? {}}>
+        <CompressionContext.Provider value={screenplay.compressionLine ?? null}>
         <pack.Audio screenplay={screenplay} />
         <Series>
           {screenplay.scenes.map((scene, i) => {
             const frames = sceneFrames(scene, fps);
-            // voiceover cue plumbing (feat/vo-sync): resolve this scene's cue
-            // to scene-local frames once; Caption consumes it via context.
-            const cue = screenplay.voiceover?.cues.find((c) => c.sceneIndex === i);
+            // dialogue voiceover plumbing (rewrite/voiceover-dialogue, PR-H):
+            // resolve this dialogue scene's per-line track to scene-local
+            // frames once; Dialogue.tsx consumes it via context, falling
+            // back to the no-VO schedule when null.
+            const track = scene.type === "dialogue" && screenplay.voiceover
+              ? sceneLocalTrack(screenplay.voiceover.lineCues, i, fps)
+              : null;
             return (
               <Series.Sequence key={i} durationInFrames={frames}>
-                <VoiceoverCueContext.Provider value={cue ? sceneLocalCue(cue, scene, fps) : null}>
+                <DialogueTrackContext.Provider value={track}>
                   {/* sceneTimes sidecar (feat/text-economy): pre-formatted
                       HH:MM per scene, or null — ClockChip consumes it. */}
                   <SceneTimeContext.Provider value={screenplay.sceneTimes?.[i] ?? null}>
                     <SceneRenderer scene={scene} screenplay={screenplay} durationInFrames={frames} />
                   </SceneTimeContext.Provider>
-                </VoiceoverCueContext.Provider>
+                </DialogueTrackContext.Provider>
               </Series.Sequence>
             );
           })}
         </Series>
         {/* scene-transitions block (feat/effects): overlay above the scenes */}
         <CutTransitions screenplay={screenplay} />
-        </FactTilesContext.Provider>
+        </CompressionContext.Provider>
+        </TitleMetaContext.Provider>
+        </StatCardsContext.Provider>
+        </IdentityContext.Provider>
       </AbsoluteFill>
     );
   };

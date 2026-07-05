@@ -11,25 +11,26 @@ import { writeScreenplay } from "../screenwriter/heuristic.js";
 import { validateScreenwriterJson, writeScreenplayLLMDetailed } from "../screenwriter/llm.js";
 import { ScreenplaySchema, type Screenplay } from "../screenplay/schema.js";
 import { remotionCliInstalled, runRemotion } from "./workspace.js";
-// voiceover integration (feat/voiceover)
-import { buildVoiceoverManifest } from "../voiceover/manifest.js";
+// voiceover integration (rewrite/voiceover-dialogue, PR-H): per-line dialogue
+// narration, synthesized before the beat-quantize lock so scene durations
+// settle to the measured audio, not the other way around.
+import { synthesizeDialogue, resizeDialogueToVoiceover } from "../voiceover/pace.js";
 import { ttsConfigFromEnv } from "../voiceover/tts.js";
-// genre auto-pick block (feat/genre-rules, issue #10)
-import { compositionFor } from "../genre/compositions.js";
-// ── T5 pipeline wiring: beat-quantize → TTS (punch-up retired with the quest pack) ──
-import { BEATS as CLASSIC_BEATS } from "../../remotion/src/audio/beatData.js";
-import { BEATS as QUEST_BEATS } from "../../remotion/src/audio/questBeatData.js";
+import type { VoiceoverLineCue } from "../voiceover/types.js";
+// ── T5 pipeline wiring: beat-quantize (punch-up retired, docs/genre-packs.md) ──
+import { BEATS } from "../../remotion/src/audio/beatData.js";
 import { quantizeToBeats } from "../quantize.js";
-import { voiceForGenre } from "../voiceover/manifest.js";
-import { GENRES, isGenre, pickGenre, signalsFrom, type Genre } from "../genre/rules.js";
-import { buildSessionFacts, pickFactTiles } from "../facts/facts.js";
+import { compressionLine, pickStatCards, titleMetaFor } from "../facts/facts.js";
 import { sceneTimesFor } from "../facts/sceneTimes.js";
-import type { Timeline } from "../parser/types.js";
+// GitHub identity pipeline (rewrite/identity, PR-F)
+import { resolveUserIdentity } from "../identity/index.js";
 
 // Matches the composition (remotion/src/Root.tsx + Classic.tsx): 30fps, each
 // scene rounds targetSec to whole frames. Keep in sync so the printed duration
 // is the real one, not the screenplay's nominal target.
 const FPS = 30;
+// No genre picker anymore (docs/genre-packs.md): classic is the only pack.
+const COMPOSITION_ID = "Classic";
 
 function movieDurationSec(screenplay: Screenplay): number {
   const frames = screenplay.scenes.reduce(
@@ -41,7 +42,8 @@ function movieDurationSec(screenplay: Screenplay): number {
 
 function usage(): never {
   process.stderr.write(
-    "usage: sessionmovie <transcript.jsonl> [--out movie.mp4] [--genre <id>] [--keep-screenplay] [--no-llm] [--voiceover] [--refresh-voices] [--screenplay <file>]\n" +
+    "usage: sessionmovie <transcript.jsonl> [--out movie.mp4] [--keep-screenplay] [--no-llm] [--voiceover] [--refresh-voices] [--screenplay <file>]\n" +
+      "       --voiceover narrates each dialogue line (ELEVENLABS_API_KEY required); per-speaker voice via ELEVENLABS_VOICE_USER / ELEVENLABS_VOICE_CLAUDE (falls back to ELEVENLABS_VOICE_ID, then a default narrator)\n" +
       "       sessionmovie doctor — check setup (node, remotion, browser, voiceover key)\n" +
       "       sessionmovie prompt <transcript.jsonl> — print the screenwriter prompt (skill path)\n",
   );
@@ -54,38 +56,6 @@ function fail(message: string): never {
 }
 
 const args = process.argv.slice(2);
-
-// ── genre auto-pick block (feat/genre-rules, issue #10) ─────────────────────
-// --genre <id> always wins (Layer 2, docs/genre-packs.md); otherwise the
-// deterministic rules table picks from the session shape (Layer 1) and the
-// pick is printed so it's explainable. Unshipped genres render as classic.
-// The flag is extracted here, BEFORE the main flag loop, so the loop below
-// stays untouched.
-let genreOverride: Genre | undefined;
-const genreFlagAt = args.indexOf("--genre");
-if (genreFlagAt !== -1) {
-  const id = args[genreFlagAt + 1];
-  if (!id || id.startsWith("-")) usage();
-  if (!isGenre(id)) {
-    fail(`unknown genre '${id}' — known genres: ${GENRES.join(", ")}`);
-  }
-  genreOverride = id;
-  args.splice(genreFlagAt, 2);
-}
-/** Genre + composition for the timeline; prints the one explainable line. */
-function resolveGenreComposition(timeline: Timeline): { compositionId: string; genre: Genre } {
-  const pick = genreOverride
-    ? { genre: genreOverride, reason: "--genre override, auto-pick skipped" }
-    : pickGenre(signalsFrom(timeline));
-  const { compositionId, shipped } = compositionFor(pick.genre);
-  process.stdout.write(
-    `   genre: ${pick.genre} (${pick.reason})` +
-      (shipped ? "" : ` → rendering classic (${pick.genre} not shipped yet)`) +
-      "\n",
-  );
-  return { compositionId, genre: pick.genre };
-}
-// ── end genre auto-pick block ───────────────────────────────────────────────
 
 let input: string | undefined;
 let out = "movie.mp4";
@@ -138,7 +108,6 @@ try {
 }
 
 const timeline = parseTranscript(jsonl);
-const { compositionId: genreComposition, genre } = resolveGenreComposition(timeline); // genre auto-pick block (issue #10)
 // LLM screenwriter is the default (real narrative, funny captions); it falls
 // back to the heuristic on its own when `claude` is missing or attempts fail.
 let result;
@@ -185,17 +154,58 @@ if (!validated.success) {
 }
 let screenplay = validated.data;
 
+// ── voiceover integration block (rewrite/voiceover-dialogue, PR-H) ──────────
+// Opt-in ElevenLabs narration, PER DIALOGUE LINE (synth-before-lock): every
+// line is synthesized first, then each dialogue scene's targetSec locks to
+// its measured audio and the rest of the movie renormalizes to hold the
+// total — so quantize (below) snaps cuts to the REAL narration, not a guess.
+// All API calls happen HERE, pre-render — never inside compositions. The
+// manifest rides as a renderer-side sidecar in the composition input props;
+// the frozen screenplay IR is untouched.
+// Budget-infeasible or synth-failure both degrade to a SILENT whole movie
+// (never partial narration) — exit 0, not a hard failure.
+let voiceoverManifest: { lineCues: VoiceoverLineCue[] } | undefined;
+if (voiceover) {
+  const ttsConfig = ttsConfigFromEnv();
+  if (!ttsConfig) {
+    fail(
+      "--voiceover needs ELEVENLABS_API_KEY in the environment — export it or `set -a; source .env; set +a` first",
+    );
+  }
+  process.stdout.write(
+    `   voiceover: narrating dialogue lines (ElevenLabs, ${ttsConfig.model})…\n`,
+  );
+  try {
+    const synth = await synthesizeDialogue(screenplay, ttsConfig, { refresh: refreshVoices });
+    const resized = resizeDialogueToVoiceover(screenplay, synth.lineCues);
+    if (resized.ok) {
+      screenplay = resized.screenplay;
+      voiceoverManifest = { lineCues: resized.lineCues };
+      process.stdout.write(
+        `   voiceover: ${resized.lineCues.length} line(s) — ${synth.apiCalls} API call(s), ` +
+          `${synth.cacheHits} cache hit(s)${resized.droppedLines ? `, ${resized.droppedLines} dropped (over 9s)` : ""}\n`,
+      );
+    } else {
+      process.stdout.write("   voiceover: narration won't fit the budget — rendering silent\n");
+    }
+  } catch (err) {
+    process.stdout.write(
+      `   voiceover: synth failed (${err instanceof Error ? err.message : String(err)}) — rendering silent\n`,
+    );
+  }
+}
+// ── end voiceover integration block ─────────────────────────────────────────
+
 // ── T5 pipeline: beat quantize (punch-up retired until a second genre pack
 // exists — docs/genre-packs.md) ─────────────────────────────────────────────
 {
-  const beats = genreComposition === "Quest" ? QUEST_BEATS : CLASSIC_BEATS;
-  const quantized = quantizeToBeats(screenplay, [...beats], FPS);
+  const quantized = quantizeToBeats(screenplay, [...BEATS], FPS);
   const nudged = quantized.scenes.filter(
     (sc, i) => sc.targetSec !== screenplay.scenes[i]?.targetSec,
   ).length;
   process.stdout.write(
     nudged > 0
-      ? `   beat-sync: ${nudged} scene cut(s) snapped to the ${genreComposition} grid\n`
+      ? `   beat-sync: ${nudged} scene cut(s) snapped to the ${COMPOSITION_ID} grid\n`
       : "   beat-sync: cuts already on the grid\n",
   );
   screenplay = quantized;
@@ -207,55 +217,45 @@ process.stdout.write(
     `(${screenplay.scenes.map((s) => s.type).join(" → ")})\n`,
 );
 
-// ── voiceover integration block (feat/voiceover) ────────────────────────────
-// Opt-in ElevenLabs narration of scene captions (docs/audio.md prototype tier).
-// All API calls happen HERE, pre-render — never inside compositions. The
-// manifest rides as a renderer-side sidecar in the composition input props;
-// the frozen screenplay IR is untouched.
 let renderProps: Record<string, unknown> = screenplay;
-if (voiceover) {
-  const ttsConfig = ttsConfigFromEnv();
-  if (!ttsConfig) {
-    fail(
-      "--voiceover needs ELEVENLABS_API_KEY in the environment — export it or `set -a; source .env; set +a` first",
-    );
-  }
-  process.stdout.write(
-    `   voiceover: narrating captions (ElevenLabs, voice ${voiceForGenre(genre)}, ${ttsConfig.model}, ${genre} persona)…\n`,
-  );
-  try {
-    const stats = await buildVoiceoverManifest(screenplay, ttsConfig, {
-      refresh: refreshVoices,
-      genre, // per-genre voice (T5 wiring — Daniel narrates quest)
-    });
-    process.stdout.write(
-      `   voiceover: ${stats.manifest.cues.length} cue(s) — ${stats.apiCalls} API call(s), ` +
-        `${stats.cacheHits} cache hit(s), ${stats.skipped.length} skipped by fit rule\n`,
-    );
-    renderProps = { ...screenplay, voiceover: stats.manifest };
-  } catch (err) {
-    fail(`voiceover failed: ${err instanceof Error ? err.message : String(err)}`);
-  }
-}
-// ── end voiceover integration block ─────────────────────────────────────────
+if (voiceoverManifest) renderProps = { ...renderProps, voiceover: voiceoverManifest };
 
-// ── session-facts sidecar block (feat/session-facts) ────────────────────────
-// SessionFacts → ≤3 pre-formatted fact tiles + per-scene clock times, riding
-// the composition input props next to the voiceover manifest. The frozen IR
-// is untouched; the renderer displays these verbatim and never derives a
-// number (docs/v1-storychange.md "Session facts").
+// ── sceneTimes sidecar block (feat/text-economy) ────────────────────────────
+// Per-scene clock times, riding the composition input props next to the
+// voiceover manifest. The frozen IR is untouched; the renderer displays these
+// verbatim and never derives a number (docs/v1-storychange.md "Session facts").
+// factTiles/achievements/grade are retired (PR-E) — statCards below replaced
+// them.
 {
-  const facts = buildSessionFacts(timeline);
-  const factTiles = pickFactTiles(facts);
   const sceneTimes = sceneTimesFor(screenplay, timeline);
-  renderProps = { ...renderProps, sceneTimes, ...(factTiles.length > 0 && { factTiles }) };
-  if (factTiles.length > 0) {
-    process.stdout.write(
-      `   facts: ${factTiles.map((t) => `${t.value} ${t.label}`).join(" · ")}\n`,
-    );
-  }
+  renderProps = { ...renderProps, sceneTimes };
 }
-// ── end session-facts sidecar block ─────────────────────────────────────────
+// ── end sceneTimes sidecar block ────────────────────────────────────────────
+
+// ── stats/title sidecar block (PR-G) ────────────────────────────────────────
+{
+  const statCards = pickStatCards(timeline);
+  const compression = compressionLine(timeline.totals.durationSec, screenplay.targetDurationSec);
+  renderProps = {
+    ...renderProps,
+    statCards,
+    compressionLine: compression,
+    titleMeta: titleMetaFor(timeline),
+  };
+  process.stdout.write(`   stats: ${statCards.length} card(s), ${compression}\n`);
+}
+// ── end stats/title sidecar block ───────────────────────────────────────────
+
+// ── identity sidecar block (rewrite/identity, PR-F) ─────────────────────────
+// The user's GitHub avatar head + body tint, resolved CLI-side only (no
+// network from compositions — docs/security-and-privacy.md "GitHub identity
+// carve-out"). Rides the composition input props as a sidecar, same as facts
+// and voiceover; the character rig consumes it.
+{
+  const identity = await resolveUserIdentity();
+  renderProps = { ...renderProps, identity };
+}
+// ── end identity sidecar block ───────────────────────────────────────────────
 
 if (!remotionCliInstalled()) {
   fail("Remotion is not installed — run `npm install`, then `sessionmovie doctor` to verify setup");
@@ -272,7 +272,7 @@ process.stdout.write("   rendering with Remotion (first run may take a few minut
 const code = await runRemotion([
   "render",
   "src/index.ts",
-  genreComposition, // genre auto-pick block (issue #10) — was hardcoded "Classic"
+  COMPOSITION_ID,
   outPath,
   `--props=${screenplayPath}`,
 ]);

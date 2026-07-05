@@ -16,6 +16,32 @@ export interface FactTile {
   value: string;
 }
 
+/**
+ * One pre-formatted stats-card entry for the no-genre stats scene (PR-G,
+ * docs/screenplay-format.md "stats numbers live outside the IR"). `value` is
+ * the whole displayed phrase, e.g. "6 test runs · 4 green" — the renderer
+ * never assembles it from parts.
+ */
+export interface StatCard {
+  /** Stable id for the card, e.g. "tests", "commits" — not displayed. */
+  id: string;
+  /** Short caption, e.g. "test runs". */
+  label: string;
+  /** Pre-formatted value, e.g. "6 test runs · 4 green". */
+  value: string;
+  /** ok = green flag on the card; fail = red flag. Omitted = neutral. */
+  accent?: "ok" | "fail";
+}
+
+/** Pre-formatted title-scene metadata; the renderer never touches Date. */
+export interface TitleMeta {
+  repo?: string;
+  /** e.g. "Jul 5, 2026". */
+  dateLabel?: string;
+  /** Real session duration, e.g. "2h 14m". */
+  durationLabel?: string;
+}
+
 export interface SessionFacts {
   /** Token totals deduped by API message id (transcripts repeat usage per content block). */
   tokens?: {

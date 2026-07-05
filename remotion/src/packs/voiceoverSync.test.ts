@@ -1,102 +1,73 @@
 /**
- * CI-safe tests for renderer-side voiceover↔caption sync math: scene-local
- * cue resolution, the caption render state (context fallback), and the
- * dialogue lead-in schedule. Pure functions, no network, no DOM, no Remotion
- * runtime.
+ * CI-safe tests for renderer-side voiceover↔dialogue sync math: the per-line
+ * scene-local track, and the dialogue lead-in schedule the no-VO fallback
+ * still uses. Pure functions, no network, no DOM, no Remotion runtime.
  *
- * (Split from the old src/voiceover/sync.test.ts: wordsFromAlignment moved
- * with its implementation to src/voiceover/sync-core.ts and is tested there —
- * src/voiceover/sync-core.test.ts. This file stays here because sceneLocalCue,
- * captionRenderState, and dialogueLeadSchedule depend on remotion/src/timing.ts,
- * which the CLI (src/) must never import.)
+ * (This file stays here because sceneLocalTrack and dialogueLeadSchedule
+ * depend on remotion/src/timing.ts, which the CLI (src/) must never import;
+ * wordsFromAlignment/VO_* constants live in src/voiceover/sync-core.ts and
+ * are tested there — src/voiceover/sync-core.test.ts.)
  *
  * Run: node --import tsx --test remotion/src/packs/voiceoverSync.test.ts
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { Scene } from "../screenplay";
-import type { SceneVoiceoverCue, VoiceoverCue } from "../../../src/voiceover/types";
-import { captionRenderState, sceneLocalCue } from "./voiceoverSync";
+import type { VoiceoverLineCue, WordTiming } from "../../../src/voiceover/types";
+import { sceneLocalTrack } from "./voiceoverSync";
 import { CAPTION_RELEASE_END, DIALOGUE_LEAD_RELEASE, dialogueLeadSchedule } from "../timing";
 
-/** A dialogue scene: captionIn = 6 — the lead-in beat (timing.ts, text economy). */
-const dialogueScene = (targetSec: number): Scene => ({
-  type: "dialogue",
-  lines: [{ speaker: "claude", text: "line", emotion: "neutral" }],
-  targetSec,
-});
+const FPS = 30;
 
-const cueWith = (durationSec: number, words: VoiceoverCue["words"]): VoiceoverCue => ({
-  sceneIndex: 0,
-  file: "voiceover-cache/x.mp3",
-  durationSec,
-  text: words.map((w) => w.word).join(" "),
-  timestampsFile: "/tmp/x.timestamps.json",
+const lineCue = (
+  sceneIndex: number,
+  lineIndex: number,
+  durationSec: number,
+  words: WordTiming[] = [],
+): VoiceoverLineCue => ({
+  sceneIndex, lineIndex, speaker: lineIndex % 2 === 0 ? "user" : "claude",
+  text: `line ${lineIndex}`, file: `voiceover-cache/${sceneIndex}-${lineIndex}.mp3`,
+  durationSec, timestampsFile: `voiceover-cache/${sceneIndex}-${lineIndex}.timestamps.json`,
   words,
 });
 
-describe("sceneLocalCue", () => {
-  it("starts at the scene's caption-in frame; words offset from there", () => {
-    // dialogue 10s @30fps → 300 frames, captionIn = 6 (lead-in, text economy)
-    const cue = cueWith(2, [
-      { word: "hi", startSec: 0, endSec: 0.5 },
-      { word: "you", startSec: 0.6, endSec: 1.9 },
-    ]);
-    const local = sceneLocalCue(cue, dialogueScene(10), 30);
-    assert.equal(local.startFrame, 6);
-    assert.equal(local.endFrame, 66);
-    assert.deepEqual(local.words[0], { text: "hi", startFrame: 6, endFrame: 21 });
-    assert.deepEqual(local.words[1], { text: "you", startFrame: 24, endFrame: 63 });
+describe("sceneLocalTrack", () => {
+  it("lays lines end-to-end from a 0.75s lead with 0.35s gaps", () => {
+    const cues = [lineCue(0, 0, 2), lineCue(0, 1, 1.5)];
+    const track = sceneLocalTrack(cues, 0, FPS);
+    assert.equal(track.length, 2);
+    // lead 0.75s @30fps = 23 frames (round)
+    assert.equal(track[0]?.startFrame, 23);
+    assert.equal(track[0]?.endFrame, 23 + Math.round(2 * FPS));
+    // gap 0.35s @30fps = 11 frames (round)
+    assert.equal(track[1]?.startFrame, track[0]!.endFrame + 11);
+    assert.equal(track[1]?.endFrame, track[1]!.startFrame + Math.round(1.5 * FPS));
   });
 
-  it("clamps the start so the cue still finishes inside the scene (mirrors ClassicAudio)", () => {
-    // 9.9s cue in a 10s scene: latest fit = 300 − 297 = 3, earlier than captionIn 6.
-    const cue = cueWith(9.9, [{ word: "long", startSec: 0, endSec: 9.9 }]);
-    const local = sceneLocalCue(cue, dialogueScene(10), 30);
-    assert.equal(local.startFrame, 300 - Math.round(9.9 * 30)); // latest fit, not 6
-    assert.ok(local.endFrame <= 300); // the cue always finishes inside its scene
-  });
-});
-
-describe("captionRenderState", () => {
-  const cue: SceneVoiceoverCue = {
-    startFrame: 100,
-    endFrame: 160,
-    words: [
-      { text: "hi", startFrame: 100, endFrame: 120 },
-      { text: "you", startFrame: 130, endFrame: 158 },
-    ],
-  };
-
-  it("without a cue: schedule-driven passthrough (graceful degradation)", () => {
-    const state = captionRenderState(null, 42, 0.37);
-    assert.equal(state.mode, "schedule");
-    assert.equal(state.opacity, 0.37);
+  it("filters to the requested scene and sorts by lineIndex regardless of input order", () => {
+    const cues = [lineCue(1, 1, 1), lineCue(0, 0, 1), lineCue(1, 0, 1)];
+    const track = sceneLocalTrack(cues, 1, FPS);
+    assert.deepEqual(track.map((t) => t.lineIndex), [0, 1]);
   });
 
-  it("with a cue: hidden before start, on at cue start, fades in fast", () => {
-    assert.equal(captionRenderState(cue, 99, 1).opacity, 0);
-    assert.ok(captionRenderState(cue, 104, 0).opacity > 0.4); // ignores fallback opacity
-    assert.equal(captionRenderState(cue, 130, 0).opacity, 1);
+  it("offsets word timings from the line's own startFrame", () => {
+    const cues = [
+      lineCue(0, 0, 2, [
+        { word: "hi", startSec: 0, endSec: 0.5 },
+        { word: "you", startSec: 0.6, endSec: 1.9 },
+      ]),
+    ];
+    const track = sceneLocalTrack(cues, 0, FPS);
+    const line = track[0]!;
+    assert.deepEqual(line.words[0], { text: "hi", startFrame: line.startFrame, endFrame: line.startFrame + 15 });
+    assert.deepEqual(line.words[1], { text: "you", startFrame: line.startFrame + 18, endFrame: line.startFrame + 57 });
   });
 
-  it("word highlight progresses with the timestamps", () => {
-    const spokenAt = (frame: number) =>
-      captionRenderState(cue, frame, 1).words?.filter((w) => w.spoken).length;
-    assert.equal(spokenAt(99), 0);
-    assert.equal(spokenAt(105), 1);
-    assert.equal(spokenAt(140), 2);
-  });
-
-  it("releases within ~15 frames of narration end", () => {
-    assert.equal(captionRenderState(cue, 160, 1).opacity, 1);
-    const releasing = captionRenderState(cue, 170, 1).opacity;
-    assert.ok(releasing > 0 && releasing < 1);
-    assert.equal(captionRenderState(cue, 176, 1).opacity, 0);
+  it("an empty scene (no matching cues) is an empty track", () => {
+    assert.deepEqual(sceneLocalTrack([lineCue(1, 0, 1)], 0, FPS), []);
   });
 });
 
-describe("dialogueLeadSchedule (one voice at a time)", () => {
+describe("dialogueLeadSchedule (the no-VO fallback's underlying math)", () => {
   const lines = { type: "dialogue" as const, lines: [
     { speaker: "claude" as const, text: "a", emotion: "neutral" as const },
     { speaker: "user" as const, text: "b", emotion: "neutral" as const },
@@ -125,5 +96,4 @@ describe("dialogueLeadSchedule (one voice at a time)", () => {
   it("release gap derives from the caption release constant", () => {
     assert.equal(DIALOGUE_LEAD_RELEASE, CAPTION_RELEASE_END + 4);
   });
-
 });

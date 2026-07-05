@@ -1,13 +1,12 @@
 /**
- * Genre → Remotion composition id. THIS TABLE IS THE CONTRACT with genre-pack
- * tasks (#9 quest, later packs): shipping a pack means adding one entry here.
- * Keep it dumb and additive — no logic beyond the explicit classic fallthrough.
+ * Genre → Remotion composition id. THIS TABLE IS THE CONTRACT with future
+ * genre-pack work: shipping a pack means adding one entry here. Keep it dumb
+ * and additive — no logic beyond the explicit classic fallthrough.
  */
 import type { Genre } from "./rules.js";
 
 export const GENRE_COMPOSITIONS: Partial<Record<Genre, string>> = {
   classic: "Classic",
-  quest: "Quest", // the quest pack (#9)
 };
 
 const CLASSIC_ID = "Classic";

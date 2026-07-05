@@ -7,6 +7,7 @@
  */
 import { remotionCliInstalled, remotionCliVersion, repoRoot, runRemotion } from "./workspace.js";
 import { checkApiKey } from "../voiceover/tts.js";
+import { resolveGitHubLogin } from "../identity/resolve.js";
 
 const MIN_NODE_MAJOR = 20; // matches package.json "engines"
 
@@ -75,6 +76,17 @@ if (!elevenLabsKey) {
   const keyCheck = await checkApiKey(elevenLabsKey);
   if (keyCheck.ok) {
     ok("ELEVENLABS_API_KEY accepted by ElevenLabs");
+    const userVoice = process.env["ELEVENLABS_VOICE_USER"];
+    const claudeVoice = process.env["ELEVENLABS_VOICE_CLAUDE"];
+    if (userVoice || claudeVoice) {
+      ok(
+        `per-speaker voices: user=${userVoice ?? "(default)"}, claude=${claudeVoice ?? "(default)"}`,
+      );
+    } else {
+      process.stdout.write(
+        "- per-speaker voices: none set — user and claude will share one voice (ELEVENLABS_VOICE_USER / ELEVENLABS_VOICE_CLAUDE to differentiate)\n",
+      );
+    }
   } else if (keyCheck.kind === "invalid") {
     bad(
       `ELEVENLABS_API_KEY rejected by ElevenLabs (${keyCheck.detail})`,
@@ -86,6 +98,17 @@ if (!elevenLabsKey) {
       "check network/proxy and re-run doctor; or unset ELEVENLABS_API_KEY to render without voiceover",
     );
   }
+}
+
+// 6. GitHub identity (rewrite/identity, PR-F) — informational only: no login
+// resolving is not a failure, it just means the render uses the initials
+// fallback (docs/characters.md). Printing the login here is fine (CLI
+// output, not a rendered frame) — docs/security-and-privacy.md carve-out.
+const githubLogin = resolveGitHubLogin();
+if (githubLogin) {
+  ok(`GitHub identity: ${githubLogin} (avatar head fetched at pipeline time)`);
+} else {
+  process.stdout.write("- GitHub identity: none resolved — using fallback initials\n");
 }
 
 process.stdout.write("\n");

@@ -1,185 +1,70 @@
-import {
-  AbsoluteFill,
-  interpolate,
-  random,
-  useCurrentFrame,
-  useVideoConfig,
-} from "remotion";
-import { EASE_OUT } from "../../../easing";
-import { cameraDrift } from "../../../effects";
-import { actionSchedule } from "../../../timing";
+import { AbsoluteFill, Sequence, interpolate, useCurrentFrame } from "remotion";
+import { artifactSchedule } from "../../../timing";
+import { Character } from "../../../characters/Character";
 import { CornerMascot } from "../../../characters/CornerMascot";
-import type { ActionScene, ToolEvent } from "../../../screenplay";
+import type { ActionScene } from "../../../screenplay";
 import { theme } from "../../../theme";
 import { Caption } from "../../Caption";
 import { ClockChip } from "../../ClockChip";
+import { ArtifactPanel, SubagentTasks } from "../ArtifactPanel";
 
-// Category palette covering the tools real sessions are made of; ok/fail
-// status wins over category so the red/green beats always read.
-const TOOL_COLORS: Record<string, string> = {
-  Read: theme.blue,
-  Glob: theme.blue,
-  Grep: theme.purple,
-  WebFetch: theme.purple,
-  WebSearch: theme.purple,
-  Task: theme.purple,
-  Edit: theme.yellow,
-  Write: theme.yellow,
-  NotebookEdit: theme.yellow,
-  Bash: theme.green,
-  Skill: theme.green,
-};
-
-const toolColor = (event: ToolEvent): string => {
-  if (event.ok === false) return theme.red;
-  return TOOL_COLORS[event.tool] ?? theme.text;
-};
-
-const CHIP_GAP = 150;
-
+/** One real artifact, characters carry the rest (docs/visual-language.md
+ * "tone rule"). Action is SILENT — no voiceover cue is ever assigned to it. */
 export const Action: React.FC<{
   scene: ActionScene;
-  caption?: string;
   durationInFrames: number;
-}> = ({ scene, caption, durationInFrames }) => {
+}> = ({ scene, durationInFrames }) => {
   const frame = useCurrentFrame();
-  const drift = cameraDrift(frame, "classic-action", durationInFrames);
-  const { height, fps } = useVideoConfig();
-
-  // Chip pacing comes from the shared timing module — the audio layer reads
-  // the same schedule for its per-chip ticks.
-  const { slideDur, chipLanded, captionIn: captionInAt } = actionSchedule(scene, durationInFrames);
-
-  // feat/effects speed ramp: montage cadence reads as accelerating because
-  // later chips fly in FASTER (compressed slide), while every chip still
-  // lands exactly at chipLanded(i) — the audio ticks read the same schedule,
-  // so landings stay the single source of truth.
-  const n = scene.events.length;
-  const slideFor = (i: number) =>
-    slideDur * (scene.intensity === "montage" && n > 1 ? 1 - 0.55 * (i / (n - 1)) : 1);
-
-  // One progress evaluation per chip per frame, shared by scroll and render.
-  const progresses = scene.events.map((_e, i) =>
-    interpolate(frame, [chipLanded(i) - slideFor(i), chipLanded(i)], [0, 1], {
-      easing: EASE_OUT,
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    }),
-  );
-
-  // Every chip that lands pushes the whole stack up by one slot.
-  const scrollUp = progresses.reduce((acc, p) => acc + p, 0);
-  const baselineY = height * 0.62;
-
-  // Landing frame of the most recent failed chip (-1 if none yet) —
-  // drives the corner mascot's sweat beat.
-  let recentFailFrames = -1;
-  scene.events.forEach((event, i) => {
-    const landed = chipLanded(i);
-    if (event.ok === false && frame >= landed) recentFailFrames = landed;
-  });
-
+  const { revealStart, captionIn: captionInAt } = artifactSchedule(durationInFrames);
   const captionIn = interpolate(frame, [captionInAt, captionInAt + 17], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
+  if (scene.artifact.kind === "subagents") {
+    return (
+      <AbsoluteFill
+        style={{ backgroundColor: theme.bg, fontFamily: theme.mono, justifyContent: "center", alignItems: "center" }}
+      >
+        <div style={{ marginBottom: 60, maxWidth: "80%" }}>
+          <SubagentTasks tasks={scene.artifact.tasks} />
+        </div>
+        <Character who="claude" emotion="neutral" clip="subagent-spawn" sizePx={280} seed="action-subagents" />
+        <ClockChip />
+        {scene.caption ? <Caption text={scene.caption} opacity={captionIn} /> : null}
+      </AbsoluteFill>
+    );
+  }
+
+  const failed = scene.artifact.kind === "command" && scene.artifact.exitCode !== 0;
+  const passed = scene.artifact.kind === "command" && scene.artifact.exitCode === 0;
+
   return (
     <AbsoluteFill
-      style={{ backgroundColor: theme.bg, fontFamily: theme.mono, overflow: "hidden", transform: drift.transform }}
+      style={{ backgroundColor: theme.bg, fontFamily: theme.mono, justifyContent: "center", alignItems: "center", padding: 60 }}
     >
-      {scene.events.map((event, i) => {
-        const p = progresses[i] ?? 0;
-        if (p === 0) return null;
-        const y = baselineY + i * CHIP_GAP - scrollUp * CHIP_GAP;
-        // Fade chips out as they ride off the top.
-        const fadeOut = interpolate(y, [120, height * 0.28], [0, 1], {
-          extrapolateLeft: "clamp",
-          extrapolateRight: "clamp",
-        });
-        if (fadeOut === 0) return null; // fully scrolled off — stop painting it
-        const jitter = (random(`chip-${i}`) - 0.5) * 4; // deterministic tilt, deg
-        const color = toolColor(event);
-        const isFail = event.ok === false;
-        return (
-          <div
-            key={i}
-            style={{
-              position: "absolute",
-              top: y,
-              left: 90,
-              right: 90,
-              display: "flex",
-              alignItems: "center",
-              gap: 24,
-              padding: "26px 36px",
-              borderRadius: 18,
-              backgroundColor: isFail ? theme.redBg : theme.panel,
-              border: `2px solid ${isFail ? theme.red : theme.panelBorder}`,
-              opacity: p * fadeOut,
-              transform: `translateX(${(1 - p) * 900}px) rotate(${jitter * (1 - p) + jitter * 0.3}deg)`,
-              fontSize: 40,
-            }}
-          >
-            <span style={{ color, fontWeight: 700, flexShrink: 0 }}>{event.tool}</span>
-            <span
-              style={{
-                color: theme.textDim,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              {event.summary}
-            </span>
-            {isFail ? (
-              <span
-                style={{
-                  color: theme.red,
-                  marginLeft: "auto",
-                  opacity: Math.floor(frame / (fps / 6)) % 2 === 0 ? 1 : 0.4,
-                }}
-              >
-                ✗
-              </span>
-            ) : null}
-            {event.ok === true ? (
-              <span style={{ color: theme.green, marginLeft: "auto" }}>✓</span>
-            ) : null}
-          </div>
-        );
-      })}
-      {/* Soft masks so chips dissolve at the edges instead of hard-clipping. */}
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 220,
-          background: `linear-gradient(${theme.bg}, transparent)`,
-        }}
-      />
-      <div
-        style={{
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: 300,
-          background: `linear-gradient(transparent, ${theme.bg})`,
-        }}
-      />
-      {/* corner-reaction mascot (issue #8): types along with the stream,
-          sweats for a beat whenever a red chip lands. Rendered BEFORE the
-          caption so editorial text always paints on top of the puppet. */}
-      <CornerMascot
-        pose="typing"
-        emotion={recentFailFrames >= 0 && frame - recentFailFrames < 55 ? "panicking" : "neutral"}
-        seed="action-corner"
-      />
+      <div style={{ width: "88%", maxWidth: 1500 }}>
+        <ArtifactPanel artifact={scene.artifact} durationInFrames={durationInFrames} />
+      </div>
+
+      {/* corner reaction: types along, then reacts at the reveal — two
+          Sequences so the squash-bounce hard-cut mask re-fires on the clip
+          change (motion.ts squashBounce). */}
+      <Sequence from={0} durationInFrames={revealStart} layout="none">
+        <CornerMascot clip="typing" emotion="confident" corner="bottom-left" seed="action-corner" />
+      </Sequence>
+      <Sequence from={revealStart} layout="none">
+        <CornerMascot
+          clip={failed ? "error-shake" : passed ? "celebrate" : "typing"}
+          emotion={failed ? "panicking" : passed ? "celebrating" : "confident"}
+          confetti={passed}
+          corner="bottom-left"
+          seed="action-corner"
+        />
+      </Sequence>
+
       <ClockChip />
-      {caption ? <Caption text={caption} opacity={captionIn} /> : null}
+      {scene.caption ? <Caption text={scene.caption} opacity={captionIn} /> : null}
     </AbsoluteFill>
   );
 };

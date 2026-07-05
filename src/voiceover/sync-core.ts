@@ -14,6 +14,11 @@ import type { CharacterAlignment, WordTiming } from "./types.js";
 export const sceneFrames = (scene: Scene, fps: number): number =>
   Math.max(1, Math.round(scene.targetSec * fps));
 
+/** Narration pacing (docs/audio.md). Shared by the CLI resize and the renderer track. */
+export const VO_LEAD_SEC = 0.75;
+export const VO_TAIL_SEC = 0.75;
+export const VO_GAP_SEC = 0.35;
+
 /**
  * Group character-level alignment into word timings: a word spans its first
  * character's start to its last character's end; whitespace separates words.

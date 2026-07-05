@@ -1,0 +1,25 @@
+{
+  "fixture": "optimize-checkout-latency.jsonl",
+  "totals": {
+    "turns": 2,
+    "toolCalls": 6,
+    "filesTouched": 2,
+    "added": 9,
+    "removed": 6,
+    "commands": 4,
+    "failedCommands": 0
+  },
+  "result": {
+    "kind": "screenplay",
+    "sceneCount": 6,
+    "sceneTypes": [
+      "title",
+      "dialogue",
+      "action",
+      "action",
+      "showcase",
+      "stats"
+    ],
+    "targetDurationSec": 50
+  }
+}
