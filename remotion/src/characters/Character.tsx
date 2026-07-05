@@ -33,8 +33,10 @@ const MiniClaudes: React.FC<{ seed: string }> = ({ seed }) => {
   const frame = useCurrentFrame();
   return <>{Array.from({ length: 3 }, (_, i) => {
     const dir = (random(`${seed}-mini-${i}`) - 0.5) * 2;
-    const dist = interpolate(frame, [0, 40], [0, 70], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-    const o = interpolate(frame, [0, 6, 34, 44], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+    // Scurry out then HOLD (they went to their tasks, they stay) — a fade-out
+    // would make the clip invisible at contact-sheet frame 45 and mid-scene.
+    const dist = interpolate(frame, [0, 34], [0, 70], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+    const o = interpolate(frame, [0, 6], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
     return (
       <g key={i} opacity={o} transform={`translate(${(dir * dist).toFixed(1)} ${(-Math.abs(dir) * 10).toFixed(1)})`}>
         <rect x={92} y={150} width={16} height={18} rx={4} fill={theme.accent} />
