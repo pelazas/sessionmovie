@@ -61,7 +61,7 @@ npx sessionmovie session.jsonl --voiceover
 
 **Key permissions matter.** A default full-access key just works. If you create a *restricted* key, it needs at least **Text to Speech** (synthesis) and **Voices: Read** (what `doctor` probes) — a fresh key that fails doctor with `HTTP 401` is almost always missing scopes, not a bad key.
 
-Knobs: `ELEVENLABS_VOICE_ID` forces one voice everywhere, `ELEVENLABS_VOICE_<GENRE>` (e.g. `ELEVENLABS_VOICE_QUEST`) overrides per genre, `ELEVENLABS_MODEL` picks the TTS model. Synthesized audio is cached content-addressed, so re-renders of the same screenplay don't re-bill. Cost: roughly $0.10–0.30 per movie-minute of narration.
+Knobs: `ELEVENLABS_VOICE_ID` forces one voice everywhere, `ELEVENLABS_MODEL` picks the TTS model. Per-speaker `ELEVENLABS_VOICE_USER`/`ELEVENLABS_VOICE_CLAUDE` arrive with the dialogue-only voiceover rewrite (docs/audio.md); until then, the single voice applies to everything. Synthesized audio is cached content-addressed, so re-renders of the same screenplay don't re-bill. Cost: roughly $0.10–0.30 per movie-minute of narration.
 
 ## Docs
 
