@@ -167,10 +167,17 @@ export function parseTranscript(jsonl: string): Timeline {
   const toolCalls: ToolCall[] = [];
   const diffs: FileDiff[] = [];
   const commands: CommandRun[] = [];
+  const createdFiles: string[] = [];
   const meta: Timeline["sessionMeta"] = {};
   const pendingByToolUseId = new Map<string, PendingToolUse>();
   let firstTimestamp: string | undefined;
   let lastTimestamp: string | undefined;
+
+  // Assistant turns: distinct messages, deduped by id like usage below (one
+  // logical message can repeat itself across several content-block lines).
+  // A line without an id can't be deduped against anything, so it always counts.
+  let assistantTurns = 0;
+  const assistantIdsSeen = new Set<string>();
 
   // Session facts (docs/v1-storychange.md): usage totals deduped by API
   // message id (one message spans several content-block lines, each
@@ -254,6 +261,11 @@ export function parseTranscript(jsonl: string): Timeline {
     }
 
     if (type === "assistant") {
+      const assistantMessageId = str(line.message?.id);
+      if (!assistantMessageId || !assistantIdsSeen.has(assistantMessageId)) {
+        if (assistantMessageId) assistantIdsSeen.add(assistantMessageId);
+        assistantTurns++;
+      }
       const model = str(line.message?.model);
       if (model && !models.includes(model)) models.push(model);
       const usage = asRecord(line.message?.usage);
@@ -327,6 +339,10 @@ export function parseTranscript(jsonl: string): Timeline {
     if ((pending.tool === "Edit" || pending.tool === "Write") && toolUseResult) {
       const filePath = str(toolUseResult["filePath"]) ?? str(pending.input["file_path"]);
       if (!filePath) return;
+      const redactedPath = redactString(filePath);
+      if (pending.tool === "Write" && !createdFiles.includes(redactedPath)) {
+        createdFiles.push(redactedPath);
+      }
       const { added, removed, snippet } = countPatch(toolUseResult["structuredPatch"]);
       let effectiveAdded = added;
       // A brand-new file can come back with an empty patch; fall back to content lines.
@@ -335,7 +351,7 @@ export function parseTranscript(jsonl: string): Timeline {
         if (newContent) effectiveAdded = newContent.split("\n").length;
       }
       const diff: FileDiff = {
-        file: redactString(filePath),
+        file: redactedPath,
         added: effectiveAdded,
         removed,
         turnIndex: pending.turnIndex,
@@ -360,6 +376,7 @@ export function parseTranscript(jsonl: string): Timeline {
     toolCalls,
     diffs,
     commands,
+    createdFiles,
     ...(usageSeen && { usage: usageTotals }),
     ...(models.length > 0 && { models }),
     ...(gapsSeen && {
@@ -372,6 +389,7 @@ export function parseTranscript(jsonl: string): Timeline {
     }),
     totals: {
       turns: turns.length,
+      assistantTurns,
       toolCalls: toolCalls.length,
       filesTouched: new Set(diffs.map((d) => d.file)).size,
       added: diffs.reduce((acc, d) => acc + d.added, 0),

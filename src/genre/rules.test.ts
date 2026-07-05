@@ -105,8 +105,10 @@ describe("signalsFrom(timeline)", () => {
       { command: "npm test", exitCode: 1, turnIndex: 0 },
       { command: "npm test", exitCode: 0, turnIndex: 0 },
     ],
+    createdFiles: [],
     totals: {
       turns: 1,
+      assistantTurns: 1,
       toolCalls: 5,
       filesTouched: 1,
       added: 2,

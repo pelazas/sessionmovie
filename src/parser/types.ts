@@ -50,6 +50,15 @@ export interface Timeline {
   diffs: FileDiff[];
   commands: CommandRun[];
   /**
+   * Redacted paths of files created via Write tool calls (tool name Write +
+   * a detectable file_path); empty when none. A Write call can also
+   * overwrite an existing file — the transcript alone can't always tell the
+   * difference, so this is "files Write touched," not a proven-new-file
+   * guarantee. Feeds the `create` action artifact (docs/screenplay-format.md).
+   * Deduped, first-seen order.
+   */
+  createdFiles: string[];
+  /**
    * Token totals from per-message `usage`, deduped by API message id — the
    * transcript repeats the same usage on every content-block line of one
    * message. Absent when the transcript carries no usage (older versions).
@@ -74,6 +83,8 @@ export interface Timeline {
   };
   totals: {
     turns: number;
+    /** Distinct assistant messages, deduped by API message id like `usage`. */
+    assistantTurns: number;
     toolCalls: number;
     filesTouched: number;
     added: number;

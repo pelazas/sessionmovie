@@ -19,7 +19,7 @@ import { BEATS } from "../../remotion/src/audio/beatData.js";
 import { quantizeToBeats } from "../quantize.js";
 import { voiceForGenre } from "../voiceover/manifest.js";
 import type { Genre } from "../genre/rules.js";
-import { buildSessionFacts, pickFactTiles } from "../facts/facts.js";
+import { buildSessionFacts, compressionLine, pickFactTiles, pickStatCards, titleMetaFor } from "../facts/facts.js";
 import { sceneTimesFor } from "../facts/sceneTimes.js";
 // GitHub identity pipeline (rewrite/identity, PR-F)
 import { resolveUserIdentity } from "../identity/index.js";
@@ -223,6 +223,23 @@ if (voiceover) {
   }
 }
 // ── end session-facts sidecar block ─────────────────────────────────────────
+
+// ── stats/title sidecar block (PR-G) ────────────────────────────────────────
+// New sidecars for the no-genre stats/title scenes — additive alongside the
+// facts sidecar above; factTiles/sceneTimes stay wired exactly as they are
+// until the renderer switches to consume these instead (PR-E).
+{
+  const statCards = pickStatCards(timeline);
+  const compression = compressionLine(timeline.totals.durationSec, screenplay.targetDurationSec);
+  renderProps = {
+    ...renderProps,
+    statCards,
+    compressionLine: compression,
+    titleMeta: titleMetaFor(timeline),
+  };
+  process.stdout.write(`   stats: ${statCards.length} card(s), ${compression}\n`);
+}
+// ── end stats/title sidecar block ───────────────────────────────────────────
 
 // ── identity sidecar block (rewrite/identity, PR-F) ─────────────────────────
 // The user's GitHub avatar head + body tint, resolved CLI-side only (no

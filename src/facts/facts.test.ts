@@ -8,7 +8,15 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Timeline } from "../parser/types.js";
 import type { Screenplay } from "../screenplay/schema.js";
-import { buildSessionFacts, factsDigestLine, formatTokens, pickFactTiles } from "./facts.js";
+import {
+  buildSessionFacts,
+  compressionLine,
+  factsDigestLine,
+  formatTokens,
+  pickFactTiles,
+  pickStatCards,
+  titleMetaFor,
+} from "./facts.js";
 import { pricingFor } from "./pricing.js";
 import { formatClock, sceneTimesFor } from "./sceneTimes.js";
 
@@ -33,11 +41,13 @@ const baseTimeline = (): Timeline => ({
     { command: "git push origin main", exitCode: 0, turnIndex: 1 },
     { command: "gh pr create --fill", exitCode: 1, turnIndex: 1 }, // failed → not counted
   ],
+  createdFiles: [],
   usage: { input: 100_000, output: 20_000, cacheRead: 800_000, cacheCreation: 100_000 },
   models: ["claude-fable-5"],
   rhythm: { activeSec: 3200, idleSec: 3160, longestPauseSec: 2400, peakToolCallsPerMinute: 12 },
   totals: {
     turns: 2,
+    assistantTurns: 2,
     toolCalls: 4,
     filesTouched: 1,
     added: 40,
@@ -191,6 +201,98 @@ describe("sceneTimesFor", () => {
     assert.match(formatClock("2026-07-04T07:23:56.861Z") ?? "", /^\d{2}:\d{2}$/);
     assert.equal(formatClock("not a date"), null);
     assert.equal(formatClock(undefined), null);
+  });
+});
+
+describe("pickStatCards", () => {
+  it("fixed priority order, first 6 — the two universal cards fall off", () => {
+    const cards = pickStatCards(baseTimeline());
+    assert.deepEqual(
+      cards.map((c) => c.id),
+      ["lines", "files", "tests", "errors", "subagents", "commits"],
+    );
+    assert.equal(cards[0]?.value, "+40 / −10");
+    assert.equal(cards[0]?.accent, undefined);
+    assert.equal(cards[1]?.value, "1 file");
+    assert.equal(cards[2]?.value, "2 test runs · 1 green");
+    assert.equal(cards[2]?.accent, "ok"); // last test run (the second "npm test") exited 0
+    assert.equal(cards[3]?.value, "2 errors survived");
+    assert.equal(cards[3]?.accent, undefined); // last command overall (gh pr create) did not exit 0
+    assert.equal(cards[4]?.value, "3 subagents");
+    assert.equal(cards[5]?.value, "2 commits");
+  });
+
+  it("raising max lets the universal cards (tool calls, turns) back in", () => {
+    const cards = pickStatCards(baseTimeline(), 8);
+    assert.deepEqual(
+      cards.map((c) => c.id),
+      ["lines", "files", "tests", "errors", "subagents", "commits", "toolCalls", "turns"],
+    );
+    assert.equal(cards[6]?.value, "4 tool calls");
+    assert.equal(cards[7]?.value, "4 turns"); // 2 user turns + 2 assistant turns
+  });
+
+  it("skips every conditional card for a bare timeline; the two universal ones always show", () => {
+    const t = baseTimeline();
+    t.diffs = [];
+    t.commands = [];
+    t.toolCalls = [];
+    t.totals = { ...t.totals, added: 0, removed: 0, filesTouched: 0, failedCommands: 0, toolCalls: 0 };
+    const cards = pickStatCards(t);
+    assert.deepEqual(
+      cards.map((c) => c.id),
+      ["toolCalls", "turns"],
+    );
+    assert.equal(cards[0]?.value, "0 tool calls");
+  });
+
+  it("errors survived gets an ok accent when the last command overall went green", () => {
+    const t = baseTimeline();
+    t.commands = [
+      { command: "npm test", exitCode: 1, turnIndex: 0 },
+      { command: "npm test", exitCode: 0, turnIndex: 1 },
+    ];
+    t.totals = { ...t.totals, failedCommands: 1 };
+    const cards = pickStatCards(t);
+    const errors = cards.find((c) => c.id === "errors");
+    assert.equal(errors?.accent, "ok");
+  });
+
+  it("singular nouns for a count of one", () => {
+    const t = baseTimeline();
+    t.diffs = [{ file: "a.ts", added: 1, removed: 0, turnIndex: 0 }];
+    t.totals = { ...t.totals, added: 1, removed: 0, filesTouched: 1 };
+    const cards = pickStatCards(t);
+    assert.equal(cards.find((c) => c.id === "files")?.value, "1 file");
+  });
+});
+
+describe("compressionLine", () => {
+  it("formats real duration (h/m) → movie duration (bare seconds)", () => {
+    assert.equal(compressionLine(6360, 50), "1h 46m → 50s");
+    assert.equal(compressionLine(45, 50), "45s → 50s");
+    assert.equal(compressionLine(125, 50), "2m → 50s");
+  });
+});
+
+describe("titleMetaFor", () => {
+  it("carries repo, formats the date, and formats the real duration", () => {
+    const t = baseTimeline();
+    t.sessionMeta.repo = "~/Desktop/checkout-service";
+    const meta = titleMetaFor(t);
+    assert.equal(meta.repo, "~/Desktop/checkout-service");
+    assert.equal(meta.dateLabel, "Jul 4, 2026");
+    assert.equal(meta.durationLabel, "1h 46m");
+  });
+
+  it("omits what it doesn't have rather than inventing it", () => {
+    const t = baseTimeline();
+    delete t.sessionMeta.startedAt;
+    t.totals = { ...t.totals, durationSec: 0 };
+    const meta = titleMetaFor(t);
+    assert.equal(meta.dateLabel, undefined);
+    assert.equal(meta.durationLabel, undefined);
+    assert.equal(meta.repo, undefined);
   });
 });
 
