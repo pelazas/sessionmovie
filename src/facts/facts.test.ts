@@ -202,15 +202,18 @@ describe("pickStatCards", () => {
       cards.map((c) => c.id),
       ["lines", "files", "tests", "errors", "subagents", "commits"],
     );
+    // Display contract: value is a compact figure, label carries the words —
+    // a card should never repeat itself ("10" + "files touched", not
+    // "10 files" + "files touched").
     assert.equal(cards[0]?.value, "+40 / −10");
     assert.equal(cards[0]?.accent, undefined);
-    assert.equal(cards[1]?.value, "1 file");
-    assert.equal(cards[2]?.value, "2 test runs · 1 green");
+    assert.equal(cards[1]?.value, "1");
+    assert.equal(cards[2]?.value, "2 · 1 green");
     assert.equal(cards[2]?.accent, "ok"); // last test run (the second "npm test") exited 0
-    assert.equal(cards[3]?.value, "2 errors survived");
+    assert.equal(cards[3]?.value, "2");
     assert.equal(cards[3]?.accent, undefined); // last command overall (gh pr create) did not exit 0
-    assert.equal(cards[4]?.value, "3 subagents");
-    assert.equal(cards[5]?.value, "2 commits");
+    assert.equal(cards[4]?.value, "3");
+    assert.equal(cards[5]?.value, "2");
   });
 
   it("raising max lets the universal cards (tool calls, turns) back in", () => {
@@ -219,8 +222,8 @@ describe("pickStatCards", () => {
       cards.map((c) => c.id),
       ["lines", "files", "tests", "errors", "subagents", "commits", "toolCalls", "turns"],
     );
-    assert.equal(cards[6]?.value, "4 tool calls");
-    assert.equal(cards[7]?.value, "4 turns"); // 2 user turns + 2 assistant turns
+    assert.equal(cards[6]?.value, "4");
+    assert.equal(cards[7]?.value, "4"); // 2 user turns + 2 assistant turns
   });
 
   it("skips every conditional card for a bare timeline; the two universal ones always show", () => {
@@ -234,7 +237,7 @@ describe("pickStatCards", () => {
       cards.map((c) => c.id),
       ["toolCalls", "turns"],
     );
-    assert.equal(cards[0]?.value, "0 tool calls");
+    assert.equal(cards[0]?.value, "0");
   });
 
   it("errors survived gets an ok accent when the last command overall went green", () => {
@@ -249,12 +252,14 @@ describe("pickStatCards", () => {
     assert.equal(errors?.accent, "ok");
   });
 
-  it("singular nouns for a count of one", () => {
+  it("value is the bare count regardless of plurality — the label doesn't repeat it", () => {
     const t = baseTimeline();
     t.diffs = [{ file: "a.ts", added: 1, removed: 0, turnIndex: 0 }];
     t.totals = { ...t.totals, added: 1, removed: 0, filesTouched: 1 };
     const cards = pickStatCards(t);
-    assert.equal(cards.find((c) => c.id === "files")?.value, "1 file");
+    const files = cards.find((c) => c.id === "files");
+    assert.equal(files?.value, "1");
+    assert.equal(files?.label, "files touched");
   });
 });
 

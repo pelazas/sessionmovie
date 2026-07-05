@@ -150,8 +150,6 @@ export function factsDigestLine(facts: SessionFacts): string {
 // here is deterministic and CLI-side; values are whole pre-formatted
 // phrases, never assembled by the renderer.
 
-const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? "" : "s"}`;
-
 /** "2h 14m" below an hour becomes "14m"; below a minute, "42s". No Date, just seconds math. */
 function humanDuration(totalSec: number): string {
   if (totalSec < 60) return `${totalSec}s`;
@@ -174,11 +172,16 @@ export function pickStatCards(timeline: Timeline, max = 6): StatCard[] {
   };
   const t = timeline.totals;
 
+  // Display contract: `value` is the compact number (or a short combined
+  // figure like "6 · 4 green" for tests), `label` carries the words — a card
+  // showing "10 files" above "files touched" repeats itself. The renderer
+  // still never derives a number; these are still whole preformatted values,
+  // just shorter ones.
   if (t.added > 0 || t.removed > 0) {
     push({ id: "lines", label: "lines changed", value: `+${t.added} / −${t.removed}` });
   }
   if (t.filesTouched > 0) {
-    push({ id: "files", label: "files touched", value: plural(t.filesTouched, "file") });
+    push({ id: "files", label: "files touched", value: `${t.filesTouched}` });
   }
   const testRuns = timeline.commands.filter((c) => TEST_PATTERN.test(c.command));
   if (testRuns.length > 0) {
@@ -187,7 +190,7 @@ export function pickStatCards(timeline: Timeline, max = 6): StatCard[] {
     push({
       id: "tests",
       label: "test runs",
-      value: `${plural(testRuns.length, "test run")} · ${green} green`,
+      value: `${testRuns.length} · ${green} green`,
       ...(lastTestRun && { accent: lastTestRun.exitCode === 0 ? "ok" : "fail" }),
     });
   }
@@ -196,20 +199,20 @@ export function pickStatCards(timeline: Timeline, max = 6): StatCard[] {
     push({
       id: "errors",
       label: "errors survived",
-      value: `${plural(t.failedCommands, "error")} survived`,
+      value: `${t.failedCommands}`,
       ...(lastCommand?.exitCode === 0 && { accent: "ok" }),
     });
   }
   const subagents = timeline.toolCalls.filter((c) => SUBAGENT_TOOLS.has(c.tool)).length;
   if (subagents > 0) {
-    push({ id: "subagents", label: "subagents", value: plural(subagents, "subagent") });
+    push({ id: "subagents", label: "subagents", value: `${subagents}` });
   }
   const commits = countGit(timeline.commands)?.commits ?? 0;
   if (commits > 0) {
-    push({ id: "commits", label: "commits", value: plural(commits, "commit") });
+    push({ id: "commits", label: "commits", value: `${commits}` });
   }
-  push({ id: "toolCalls", label: "tool calls", value: plural(t.toolCalls, "tool call") });
-  push({ id: "turns", label: "turns", value: plural(t.turns + t.assistantTurns, "turn") });
+  push({ id: "toolCalls", label: "tool calls", value: `${t.toolCalls}` });
+  push({ id: "turns", label: "turns", value: `${t.turns + t.assistantTurns}` });
 
   return cards;
 }
