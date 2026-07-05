@@ -42,7 +42,7 @@
     "parse": "tsx src/cli/parse.ts",
     "validate": "tsx src/cli/validate.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p remotion",
-    "test": "node --import tsx --test scripts/golden.test.ts src/voiceover/voiceover.test.ts src/voiceover/sync-core.test.ts remotion/src/packs/voiceoverSync.test.ts src/genre/rules.test.ts src/screenwriter/skill-surface.test.ts src/quantize.test.ts src/facts/facts.test.ts",
+    "test": "node --import tsx --test scripts/golden.test.ts src/voiceover/voiceover.test.ts src/voiceover/sync-core.test.ts remotion/src/packs/voiceoverSync.test.ts src/genre/rules.test.ts src/screenwriter/skill-surface.test.ts src/quantize.test.ts src/facts/facts.test.ts src/identity/identity.test.ts",
     "build": "tsup",
     "prepublishOnly": "npm run typecheck && npm test && npm run build",
     "render": "npm run render -w @sessionmovie/renderer",
@@ -51,6 +51,8 @@
   },
   "dependencies": {
     "@remotion/cli": "4.0.484",
+    "jpeg-js": "^0.4.4",
+    "pngjs": "^7.0.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "remotion": "4.0.484",
@@ -59,6 +61,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/pngjs": "^6.0.5",
     "tsup": "^8.5.0",
     "tsx": "^4.19.0"
   }

@@ -1,5 +1,6 @@
 import { AbsoluteFill, Series, useCurrentFrame, useVideoConfig } from "remotion";
 import type { FactTile } from "../../../src/facts/types";
+import type { UserIdentity } from "../../../src/identity/types";
 import type { VoiceoverManifest } from "../../../src/voiceover/types";
 import { SceneTimeContext } from "./ClockChip";
 import { FactTilesContext } from "./FactTiles";
@@ -71,6 +72,9 @@ export const makePackComposition = (pack: GenrePack): React.FC<Screenplay> => {
       voiceover?: VoiceoverManifest;
       sceneTimes?: (string | null)[];
       factTiles?: FactTile[];
+      // identity sidecar (rewrite/identity, PR-F): consumed by the character
+      // rig once it lands; not read by any scene component yet.
+      identity?: UserIdentity;
     }
   > = (screenplay) => {
     const { fps } = useVideoConfig();

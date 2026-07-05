@@ -21,6 +21,8 @@ import { voiceForGenre } from "../voiceover/manifest.js";
 import type { Genre } from "../genre/rules.js";
 import { buildSessionFacts, pickFactTiles } from "../facts/facts.js";
 import { sceneTimesFor } from "../facts/sceneTimes.js";
+// GitHub identity pipeline (rewrite/identity, PR-F)
+import { resolveUserIdentity } from "../identity/index.js";
 
 // Matches the composition (remotion/src/Root.tsx + Classic.tsx): 30fps, each
 // scene rounds targetSec to whole frames. Keep in sync so the printed duration
@@ -221,6 +223,17 @@ if (voiceover) {
   }
 }
 // ── end session-facts sidecar block ─────────────────────────────────────────
+
+// ── identity sidecar block (rewrite/identity, PR-F) ─────────────────────────
+// The user's GitHub avatar head + body tint, resolved CLI-side only (no
+// network from compositions — docs/security-and-privacy.md "GitHub identity
+// carve-out"). Rides the composition input props as a sidecar, same as facts
+// and voiceover; the character rig consumes it.
+{
+  const identity = await resolveUserIdentity();
+  renderProps = { ...renderProps, identity };
+}
+// ── end identity sidecar block ───────────────────────────────────────────────
 
 if (!remotionCliInstalled()) {
   fail("Remotion is not installed — run `npm install`, then `sessionmovie doctor` to verify setup");
