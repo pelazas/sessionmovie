@@ -3,9 +3,12 @@
  *
  * The raw transcript can be hundreds of thousands of tokens; the screenwriter
  * reads this digest instead (docs/architecture.md, stage 1 "Digest generation").
- * Per turn: the user prompt, tools used, diffs with sizes, and command results
- * with exit codes — everything the model needs to find the struggle → insight
- * → resolution arc, and nothing else.
+ * Per turn: the user prompt (the user's side of the exchange), then what the
+ * agent did that turn (its side) — tools used, diffs with sizes and new-file
+ * markers, subagent dispatches, and command results with exit codes. That is
+ * everything the model needs to write the dialogue → action pairs
+ * (docs/screenplay-format.md) and pick one truthful artifact per action, and
+ * nothing else.
  *
  * Inputs are already redacted (redaction happens in the parser, at the door),
  * so the digest is safe to send to the model as-is.
@@ -19,6 +22,9 @@ import { formatClock } from "../facts/time.js";
 import type { CommandRun, FileDiff, Timeline, ToolCall, Turn } from "../parser/types.js";
 
 export const MAX_DIGEST_CHARS = 30_000;
+
+/** Tool names that spawn subagents in Claude Code transcripts (mirrors heuristic.ts / facts.ts). */
+const SUBAGENT_TOOLS = new Set(["Task", "Agent"]);
 
 /** One rendering budget; levels are tried from most to least detailed. */
 interface DetailLevel {
@@ -64,9 +70,21 @@ function header(timeline: Timeline): string {
       `(+${totals.added}/−${totals.removed}) | commands: ${totals.commands} ` +
       `(${totals.failedCommands} failed)`,
   );
-  // Session facts (docs/v1-storychange.md): real numbers are anchors — the
-  // screenwriter can put them in captions and achievements. One line, only
-  // when the transcript carried facts.
+  // Files written from scratch feed the `create` action artifact
+  // (docs/screenplay-format.md): the per-turn DIFF lines below mark each one
+  // "(new file)", so this is just the count the model needs to know a create
+  // beat is available. Matches the annotation exactly — Write-touched AND
+  // removed nothing (an overwrite is an edit, not a create).
+  const createdSet = new Set(timeline.createdFiles);
+  const newFiles = new Set(
+    timeline.diffs.filter((d) => createdSet.has(d.file) && d.removed === 0).map((d) => d.file),
+  );
+  if (newFiles.size > 0) {
+    lines.push(`created from scratch: ${newFiles.size} file(s)`);
+  }
+  // Session facts (docs/v1-storychange.md): real numbers are context for the
+  // screenwriter's captions — the rendered stats numbers themselves ride the
+  // CLI facts sidecar, not the screenplay. One line, only when facts exist.
   const facts = factsDigestLine(buildSessionFacts(timeline));
   if (facts) lines.push(facts);
   return lines.join("\n");
@@ -78,9 +96,13 @@ function renderTurn(
   tools: ToolCall[],
   diffs: FileDiff[],
   commands: CommandRun[],
+  createdSet: Set<string>,
   level: DetailLevel,
 ): string {
   const lines: string[] = [`## TURN ${index + 1}${timeOfDay(turn.timestamp)}`];
+  // USER is the user's side of the exchange (dialogue source for `speaker:user`);
+  // the TOOLS / DIFF / COMMAND / SUBAGENTS below are the agent's side — what it
+  // actually did that turn (dialogue source for `speaker:claude`).
   lines.push(`USER: ${clamp(turn.userMessage, level.promptChars) || "(empty prompt)"}`);
 
   if (tools.length > 0) {
@@ -90,8 +112,20 @@ function renderTurn(
     lines.push(`TOOLS (${tools.length}): ${items.join("; ")}`);
   }
 
+  // Subagent dispatches, pulled out of the flat TOOLS list so the model can
+  // build a truthful `subagents` artifact (tasks <= 60 chars, mirrors the schema).
+  const subagents = tools.filter((t) => SUBAGENT_TOOLS.has(t.tool));
+  if (subagents.length > 0) {
+    const tasks = subagents.map((t) => clamp(t.summary, 60));
+    lines.push(`SUBAGENTS (${subagents.length}): ${tasks.join("; ")}`);
+  }
+
   for (const diff of diffs) {
-    lines.push(`DIFF: ${diff.file} +${diff.added}/−${diff.removed}`);
+    // "(new file)" only when Write touched it AND it removed nothing — a Write
+    // that removes lines overwrote an existing file, not a from-scratch create
+    // (createdFiles is "Write-touched", not proven-new; see parser/types.ts).
+    const isNew = createdSet.has(diff.file) && diff.removed === 0 ? " (new file)" : "";
+    lines.push(`DIFF: ${diff.file} +${diff.added}/−${diff.removed}${isNew}`);
     if (diff.snippet && level.snippetChars > 0) {
       const snippet = diff.snippet.trim().slice(0, level.snippetChars);
       lines.push(...snippet.split("\n").map((l) => `  ${l}`));
@@ -114,6 +148,7 @@ function renderTurn(
 }
 
 function renderTurnBlocks(timeline: Timeline, level: DetailLevel): string[] {
+  const createdSet = new Set(timeline.createdFiles);
   return timeline.turns.map((turn, i) =>
     renderTurn(
       i,
@@ -121,6 +156,7 @@ function renderTurnBlocks(timeline: Timeline, level: DetailLevel): string[] {
       timeline.toolCalls.filter((t) => t.turnIndex === i),
       timeline.diffs.filter((d) => d.turnIndex === i),
       timeline.commands.filter((c) => c.turnIndex === i),
+      createdSet,
       level,
     ),
   );
