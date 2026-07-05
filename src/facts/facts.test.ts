@@ -33,11 +33,13 @@ const baseTimeline = (): Timeline => ({
     { command: "git push origin main", exitCode: 0, turnIndex: 1 },
     { command: "gh pr create --fill", exitCode: 1, turnIndex: 1 }, // failed → not counted
   ],
+  createdFiles: [],
   usage: { input: 100_000, output: 20_000, cacheRead: 800_000, cacheCreation: 100_000 },
   models: ["claude-fable-5"],
   rhythm: { activeSec: 3200, idleSec: 3160, longestPauseSec: 2400, peakToolCallsPerMinute: 12 },
   totals: {
     turns: 2,
+    assistantTurns: 2,
     toolCalls: 4,
     filesTouched: 1,
     added: 40,

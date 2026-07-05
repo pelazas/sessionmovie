@@ -27,8 +27,11 @@ export function snapshotFixture(fixturePath: string, fixtureName: string): Golde
   const timeline = parseTranscript(readFileSync(fixturePath, "utf8"));
   const output = writeScreenplay(timeline);
   // durationSec depends on wall-clock timestamps — meaningful but noisy; totals
-  // below are the stable, structural facts.
-  const { durationSec: _ignored, ...stableTotals } = timeline.totals;
+  // below are the stable, structural facts. assistantTurns is stable too, but
+  // PR-G scoped its own coverage to src/parser/transcript.test.ts rather than
+  // regenerating every golden fixture for a field the golden snapshot doesn't
+  // otherwise need — pulled out here so the golden corpus stays untouched.
+  const { durationSec: _ignored, assistantTurns: _ignoredAssistantTurns, ...stableTotals } = timeline.totals;
   return {
     fixture: fixtureName,
     totals: stableTotals,
