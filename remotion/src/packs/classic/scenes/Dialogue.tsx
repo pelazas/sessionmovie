@@ -1,34 +1,30 @@
 import { useContext } from "react";
 import { AbsoluteFill, Sequence, interpolate, useCurrentFrame } from "remotion";
-import { EASE_BACK_OUT, EASE_OUT } from "../../../easing";
-import { cameraDrift } from "../../../effects";
-import { dialogueLeadSchedule } from "../../../timing";
-import { Mascot } from "../../../characters/Mascot";
-import type { DialogueScene } from "../../../screenplay";
-import type { Emotion } from "../../../screenplay";
+import { EASE, EASE_POP } from "../../../motion";
+import { dialogueBubbleSchedule } from "../../../timing";
+import { Character } from "../../../characters/Character";
+import type { DialogueScene, Emotion } from "../../../screenplay";
 import { theme } from "../../../theme";
 import { Caption } from "../../Caption";
 import { ClockChip } from "../../ClockChip";
 import { VoiceoverCueContext } from "../../types";
 
-// The characters' main stage: both puppets stand at the bottom (user left/
-// blue, claude right/purple) while speech bubbles pop in above them. The
-// puppets replace the old name tags — the bubble tail side + puppet identify
-// the speaker, and the speaking puppet wears the line's emotion.
+// The characters' main stage: both stand at the bottom (user left/coral
+// border, claude right/neutral border) while speech bubbles pop in above
+// them. Bubble border color + puppet side identify the speaker; the
+// speaking puppet wears the line's emotion.
 export const Dialogue: React.FC<{
   scene: DialogueScene;
-  caption?: string;
   durationInFrames: number;
-}> = ({ scene, caption, durationInFrames }) => {
+}> = ({ scene, durationInFrames }) => {
   const frame = useCurrentFrame();
   const cue = useContext(VoiceoverCueContext);
-  const drift = cameraDrift(frame, "classic-dialogue", durationInFrames);
 
-  // One voice at a time (docs/v1-storychange.md): with narration, caption +
-  // cue play as a lead-in and the bubble train runs after; without, bubbles
-  // start immediately and a caption is a closing beat after the last bubble.
-  // All the math lives in timing.ts (dialogueLeadSchedule).
-  const { usable, lineStart } = dialogueLeadSchedule(
+  // THE VO SEAM (PR-H): this scene calls ONLY dialogueBubbleSchedule — today
+  // it's a thin wrapper over dialogueLeadSchedule (one caption cue drives the
+  // whole scene's lead-in); PR-H reimplements the seam to start each bubble
+  // at its own line's cue without touching this file.
+  const { usable, lineStart } = dialogueBubbleSchedule(
     scene,
     durationInFrames,
     cue ? cue.endFrame : null,
@@ -48,7 +44,15 @@ export const Dialogue: React.FC<{
     }
     return "neutral";
   };
-  const activeSpeaker = activeIndex >= 0 ? scene.lines[activeIndex]?.speaker : undefined;
+
+  // Index of this speaker's own latest line at or before the active line —
+  // -1 if they haven't spoken yet.
+  const speakerLineIndex = (speaker: "user" | "claude"): number => {
+    for (let i = activeIndex; i >= 0; i--) {
+      if (scene.lines[i]?.speaker === speaker) return i;
+    }
+    return -1;
+  };
 
   // Closing-beat caption opacity for cueless captions (with a cue, Caption
   // runs narration-driven in sync mode and ignores this schedule opacity).
@@ -57,58 +61,29 @@ export const Dialogue: React.FC<{
     extrapolateRight: "clamp",
   });
   const puppetsIn = interpolate(frame, [0, 12], [0, 1], {
-    easing: EASE_OUT,
+    easing: EASE,
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  // Last line index this speaker delivered at or before the active line.
-  const speakerLineIndex = (speaker: "user" | "claude"): number => {
-    for (let i = activeIndex; i >= 0; i--) {
-      if (scene.lines[i]?.speaker === speaker) return i;
-    }
-    return -1;
-  };
-
-  // A puppet points while its line is on the air, keeps pointing while the
-  // NEXT bubble pops in (the pop steals the eye, hiding the arm release),
-  // and everyone relaxes to idle once the conversation is over — no statue
-  // pointing at nothing through the caption beat.
-  const HOLDOVER = 14;
-  const conversationOver = frame >= usable + 15;
-  const isPointing = (speaker: "user" | "claude"): boolean => {
-    if (conversationOver) return false;
+  // Each puppet's squash-bounce beat re-fires at ITS OWN latest line (motion.ts:
+  // wrap in a <Sequence> to re-fire on cut) — before their first line, render
+  // unwrapped (no line to key a Sequence's `from` off yet).
+  const puppet = (speaker: "user" | "claude", flip: boolean) => {
+    const emotion = lastEmotion(speaker);
+    const el = <Character who={speaker} emotion={emotion} sizePx={290} flip={flip} seed={`dialogue-${speaker}`} />;
     const li = speakerLineIndex(speaker);
-    if (li < 0) return false;
-    if (activeSpeaker === speaker) return true;
-    return li === activeIndex - 1 && frame < lineStart(activeIndex) + HOLDOVER;
-  };
-
-  const puppet = (speaker: "user" | "claude") => {
-    const pointing = isPointing(speaker);
-    const li = speakerLineIndex(speaker);
-    const mascot = (
-      <Mascot
-        character={speaker === "user" ? "user" : "agent"}
-        emotion={lastEmotion(speaker)}
-        pose={pointing ? "point" : "idle"}
-        size={290}
-        seed={`dialogue-${speaker}`}
-      />
-    );
-    // Restart the sequence clock at the speaker's own line so the "point"
-    // spring re-fires per bubble (and stays settled through the holdover).
-    return pointing && li >= 0 ? (
+    return li >= 0 ? (
       <Sequence from={lineStart(li)} layout="none">
-        {mascot}
+        {el}
       </Sequence>
     ) : (
-      mascot
+      el
     );
   };
 
   return (
-    <AbsoluteFill style={{ backgroundColor: theme.bg, fontFamily: theme.mono, transform: drift.transform }}>
+    <AbsoluteFill style={{ backgroundColor: theme.bg, fontFamily: theme.mono }}>
       {/* bubble stack — just above the puppets */}
       <div
         style={{
@@ -119,12 +94,9 @@ export const Dialogue: React.FC<{
           bottom: 500,
           display: "flex",
           flexDirection: "column",
-          // Short dialogues bottom-aligned leave ~55% dead space up top;
-          // centering balances them. Long stacks stay bottom-anchored so the
-          // chat-log supersede fade keeps working (issue #13).
-          // Center only short exchanges: 3 near-max lines (~630px wrapped) can
-          // overflow the 510px area DOWNWARD into the puppets' heads when
-          // centered; bottom-anchoring keeps the hard clearance above them.
+          // Short dialogues bottom-aligned leave dead space up top; centering
+          // balances them. Long stacks stay bottom-anchored so the chat-log
+          // supersede fade keeps working.
           justifyContent: scene.lines.length <= 2 ? "center" : "flex-end",
           gap: 40,
         }}
@@ -132,7 +104,7 @@ export const Dialogue: React.FC<{
         {scene.lines.map((line, i) => {
           const start = lineStart(i);
           const p = interpolate(frame, [start, start + 12], [0, 1], {
-            easing: EASE_BACK_OUT,
+            easing: EASE_POP,
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
           });
@@ -149,7 +121,7 @@ export const Dialogue: React.FC<{
               : 1;
           if (superseded === 0) return null;
           const isUser = line.speaker === "user";
-          const color = isUser ? theme.blue : theme.purple;
+          const color = isUser ? theme.accent : theme.panelBorder;
           return (
             <div
               key={i}
@@ -170,7 +142,7 @@ export const Dialogue: React.FC<{
                   borderRadius: 24,
                   [isUser ? "borderBottomLeftRadius" : "borderBottomRightRadius"]: 4,
                   padding: "30px 40px",
-                  color: theme.text,
+                  color: theme.textPrimary,
                   fontSize: 44,
                   lineHeight: 1.35,
                 }}
@@ -182,33 +154,18 @@ export const Dialogue: React.FC<{
         })}
       </div>
 
-      {/* the stage — puppets replace name tags; speaker points, listener idles */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: 180,
-          left: 55,
-          opacity: puppetsIn,
-          transform: `translateY(${(1 - puppetsIn) * 60}px)`,
-        }}
-      >
-        {puppet("user")}
+      {/* the stage — user left (coral border echoed by bubbles), claude
+          right (flipped) */}
+      <div style={{ position: "absolute", bottom: 180, left: 55, opacity: puppetsIn, transform: `translateY(${(1 - puppetsIn) * 60}px)` }}>
+        {puppet("user", false)}
       </div>
-      <div
-        style={{
-          position: "absolute",
-          bottom: 180,
-          right: 55,
-          opacity: puppetsIn,
-          transform: `translateY(${(1 - puppetsIn) * 60}px)`,
-        }}
-      >
-        {puppet("claude")}
+      <div style={{ position: "absolute", bottom: 180, right: 55, opacity: puppetsIn, transform: `translateY(${(1 - puppetsIn) * 60}px)` }}>
+        {puppet("claude", true)}
       </div>
 
       <ClockChip />
 
-      {caption ? <Caption text={caption} opacity={captionIn} /> : null}
+      {scene.caption ? <Caption text={scene.caption} opacity={captionIn} /> : null}
     </AbsoluteFill>
   );
 };

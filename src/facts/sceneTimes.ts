@@ -34,7 +34,14 @@ export function sceneTimesFor(screenplay: Screenplay, timeline: Timeline): (stri
       const hit = timeline.commands.find((c) => c.command.startsWith(needle));
       return hit ? turnTime(hit.turnIndex) : null;
     }
-    // create / subagents: no single timeline entry to anchor to.
+    if (artifact.kind === "create") {
+      // Anchor to the first created file, same basename match as edit.
+      const first = artifact.files[0];
+      if (!first) return null;
+      const hit = timeline.diffs.find((d) => basename(d.file) === basename(first));
+      return hit ? turnTime(hit.turnIndex) : null;
+    }
+    // subagents: no single timeline entry to anchor to.
     return null;
   };
 

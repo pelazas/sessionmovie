@@ -19,7 +19,7 @@ import { BEATS } from "../../remotion/src/audio/beatData.js";
 import { quantizeToBeats } from "../quantize.js";
 import { voiceForGenre } from "../voiceover/manifest.js";
 import type { Genre } from "../genre/rules.js";
-import { buildSessionFacts, compressionLine, pickFactTiles, pickStatCards, titleMetaFor } from "../facts/facts.js";
+import { compressionLine, pickStatCards, titleMetaFor } from "../facts/facts.js";
 import { sceneTimesFor } from "../facts/sceneTimes.js";
 // GitHub identity pipeline (rewrite/identity, PR-F)
 import { resolveUserIdentity } from "../identity/index.js";
@@ -206,28 +206,19 @@ if (voiceover) {
 }
 // ── end voiceover integration block ─────────────────────────────────────────
 
-// ── session-facts sidecar block (feat/session-facts) ────────────────────────
-// SessionFacts → ≤3 pre-formatted fact tiles + per-scene clock times, riding
-// the composition input props next to the voiceover manifest. The frozen IR
-// is untouched; the renderer displays these verbatim and never derives a
-// number (docs/v1-storychange.md "Session facts").
+// ── sceneTimes sidecar block (feat/text-economy) ────────────────────────────
+// Per-scene clock times, riding the composition input props next to the
+// voiceover manifest. The frozen IR is untouched; the renderer displays these
+// verbatim and never derives a number (docs/v1-storychange.md "Session facts").
+// factTiles/achievements/grade are retired (PR-E) — statCards below replaced
+// them.
 {
-  const facts = buildSessionFacts(timeline);
-  const factTiles = pickFactTiles(facts);
   const sceneTimes = sceneTimesFor(screenplay, timeline);
-  renderProps = { ...renderProps, sceneTimes, ...(factTiles.length > 0 && { factTiles }) };
-  if (factTiles.length > 0) {
-    process.stdout.write(
-      `   facts: ${factTiles.map((t) => `${t.value} ${t.label}`).join(" · ")}\n`,
-    );
-  }
+  renderProps = { ...renderProps, sceneTimes };
 }
-// ── end session-facts sidecar block ─────────────────────────────────────────
+// ── end sceneTimes sidecar block ────────────────────────────────────────────
 
 // ── stats/title sidecar block (PR-G) ────────────────────────────────────────
-// New sidecars for the no-genre stats/title scenes — additive alongside the
-// facts sidecar above; factTiles/sceneTimes stay wired exactly as they are
-// until the renderer switches to consume these instead (PR-E).
 {
   const statCards = pickStatCards(timeline);
   const compression = compressionLine(timeline.totals.durationSec, screenplay.targetDurationSec);

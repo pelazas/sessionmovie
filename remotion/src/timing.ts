@@ -1,11 +1,4 @@
-import type {
-  ActionScene,
-  DialogueScene,
-  Scene,
-  Screenplay,
-  StatsScene,
-  TitleScene,
-} from "./screenplay";
+import type { DialogueScene, Scene, Screenplay, TitleScene } from "./screenplay";
 // sceneFrames moved to src/voiceover/sync-core.ts (CLI-side) so the CLI never
 // imports a renderer module — re-exported here so every renderer-side
 // consumer that imports it from "./timing"/"../timing"/etc. keeps working.
@@ -38,93 +31,50 @@ export const sceneCutFrames = (screenplay: Screenplay, fps: number): number[] =>
   return cuts;
 };
 
-// ── title ────────────────────────────────────────────────────────────────────
+// ── title (no cold open): characters walk in, then the task types out ──────
 
 export interface TitleSchedule {
-  /** Cold-open flash length; 0 when the scene has no coldOpen. */
-  coldOpenFrames: number;
-  /** Typing starts this many frames into the CARD (i.e. after the cold open). */
+  /** Scene-local frame where both characters' walk-in has landed. */
+  walkInEnd: number;
   typingStart: number;
   charsPerFrame: number;
-  /** Card-local frame when the last character lands. */
+  /** Scene-local frame when the last character lands. */
   typingEnd: number;
   /** Scene-local frame where the caption starts fading in. */
   captionIn: number;
 }
 
-/** The prompt types itself out, always finishing by ~65% of the card. */
+/** The prompt types itself out, always finishing by ~70% of the scene. */
 export const titleSchedule = (scene: TitleScene, durationInFrames: number): TitleSchedule => {
-  const coldOpenFrames = scene.coldOpen ? Math.round(durationInFrames * 0.22) : 0;
-  const typingStart = 15;
-  const cardFrames = durationInFrames - coldOpenFrames;
+  const walkInEnd = Math.min(30, Math.round(durationInFrames * 0.25));
+  const typingStart = walkInEnd + 6;
   const charsPerFrame = Math.max(
     0.9,
-    scene.task.length / Math.max(10, cardFrames * 0.65 - typingStart),
+    scene.task.length / Math.max(10, durationInFrames * 0.7 - typingStart),
   );
   const typingEnd = typingStart + scene.task.length / charsPerFrame;
-  return {
-    coldOpenFrames,
-    typingStart,
-    charsPerFrame,
-    typingEnd,
-    captionIn: coldOpenFrames + typingEnd + 5,
-  };
+  return { walkInEnd, typingStart, charsPerFrame, typingEnd, captionIn: typingEnd + 6 };
 };
 
-// ── action ───────────────────────────────────────────────────────────────────
+// ── artifact (shared by action + showcase) ──────────────────────────────────
 
-export interface ActionSchedule {
-  /** Chips all land inside this window, whatever the event count. */
-  streamFrames: number;
-  interval: number;
-  slideDur: number;
-  /** Scene-local frame where chip i starts sliding in. */
-  chipStart: (i: number) => number;
-  /** Scene-local frame where chip i lands (the SFX tick). */
-  chipLanded: (i: number) => number;
-  captionIn: number;
-}
-
-export const actionSchedule = (scene: ActionScene, durationInFrames: number): ActionSchedule => {
-  const streamFrames = durationInFrames * (scene.intensity === "montage" ? 0.75 : 0.9);
-  const interval = Math.max(1.5, (streamFrames - 10) / scene.events.length);
-  const slideDur = Math.min(12, Math.max(3, interval));
-  return {
-    streamFrames,
-    interval,
-    slideDur,
-    chipStart: (i) => 10 + i * interval,
-    chipLanded: (i) => 10 + i * interval + slideDur,
-    captionIn: 8,
-  };
-};
-
-// ── showcase ─────────────────────────────────────────────────────────────────
-
-export interface ShowcaseSchedule {
+export interface ArtifactSchedule {
   panelInDur: number;
-  /** Removed diff lines start collapsing here. */
-  collapseStart: number;
-  /** The verdict banner (and its SFX) lands here. */
-  verdictStart: number;
+  typeStart: number;
+  typeEnd: number;
+  revealStart: number;
   captionIn: number;
-  /** testRun artifact: command typing + exit badge. */
-  testRun: { typeStart: number; typeEnd: number; badgeStart: number };
 }
 
-export const showcaseSchedule = (durationInFrames: number): ShowcaseSchedule => ({
-  panelInDur: 15,
-  collapseStart: Math.round(durationInFrames * 0.12),
-  verdictStart: Math.round(durationInFrames * 0.78),
+export const artifactSchedule = (durationInFrames: number): ArtifactSchedule => ({
+  panelInDur: 12,
+  typeStart: 14,
+  typeEnd: Math.max(24, Math.round(durationInFrames * 0.55)),
+  revealStart: Math.round(durationInFrames * 0.72),
   captionIn: 10,
-  testRun: {
-    typeStart: 12,
-    typeEnd: Math.max(20, durationInFrames * 0.25),
-    badgeStart: Math.round(durationInFrames * 0.45),
-  },
 });
 
-// ── dialogue ─────────────────────────────────────────────────────────────────
+// ── dialogue (unchanged shape — only uses scene.lines) ──────────────────────
 
 export interface DialogueSchedule {
   /** Bubbles all land within the first ~70% of the scene. */
@@ -145,7 +95,7 @@ export const dialogueSchedule = (
   // scenes caption + narration are a LEAD-IN before the first bubble — one
   // voice at a time, never caption text over a popping bubble. Voiceover cue
   // scheduling reads this same value, so narration starts here too; the
-  // Dialogue components delay the bubble train past the lead-in.
+  // Dialogue component delays the bubble train past the lead-in.
   return { usable, interval, lineStart: (i) => 10 + i * interval, captionIn: 6 };
 };
 
@@ -187,26 +137,40 @@ export const dialogueLeadSchedule = (
   };
 };
 
-// ── stats ────────────────────────────────────────────────────────────────────
+/** THE VO SEAM (PR-H): Dialogue.tsx calls ONLY this. Today one caption cue
+ * drives the whole scene's lead-in; PR-H reimplements this to start each
+ * bubble at its own line's VO cue — Dialogue.tsx does not change. */
+export interface BubbleSchedule {
+  lineStart: (i: number) => number;
+  usable: number;
+  captionIn: number;
+}
+export const dialogueBubbleSchedule = (
+  scene: DialogueScene,
+  durationInFrames: number,
+  cueEndFrame: number | null,
+): BubbleSchedule => {
+  const s = dialogueLeadSchedule(scene, durationInFrames, cueEndFrame);
+  return { lineStart: s.lineStart, usable: s.usable, captionIn: s.captionIn };
+};
+
+// ── stats (cards come from the sidecar) ─────────────────────────────────────
 
 export interface StatsSchedule {
-  countsStart: number;
-  achievementsStart: number;
-  gradeStart: number;
+  compressionIn: number;
+  cardsStart: number;
+  cardStagger: number;
+  watermarkIn: number;
   captionIn: number;
 }
 
-export const statsSchedule = (scene: StatsScene, durationInFrames: number): StatsSchedule => {
-  const countsStart = 20;
-  // Fixed 90 starved short stats scenes (a 3s scene never showed its trophies);
-  // identical to the old constant for scenes of ~6.7s and longer.
-  const achievementsStart = Math.min(90, Math.round(durationInFrames * 0.45));
-  const gradeStart = Math.min(
-    durationInFrames - 60,
-    achievementsStart + scene.achievements.length * 15 + 25,
-  );
-  return { countsStart, achievementsStart, gradeStart, captionIn: gradeStart + 20 };
-};
+export const statsSchedule = (durationInFrames: number): StatsSchedule => ({
+  compressionIn: 12,
+  cardsStart: 28,
+  cardStagger: 8,
+  watermarkIn: Math.round(durationInFrames * 0.78),
+  captionIn: Math.round(durationInFrames * 0.85),
+});
 
 // ── captions (voiceover alignment) ───────────────────────────────────────────
 
@@ -220,12 +184,12 @@ export const captionInFrame = (scene: Scene, durationInFrames: number): number =
     case "title":
       return Math.round(titleSchedule(scene, durationInFrames).captionIn);
     case "action":
-      return actionSchedule(scene, durationInFrames).captionIn;
+      return artifactSchedule(durationInFrames).captionIn;
     case "showcase":
-      return showcaseSchedule(durationInFrames).captionIn;
+      return artifactSchedule(durationInFrames).captionIn;
     case "dialogue":
       return Math.round(dialogueSchedule(scene, durationInFrames).captionIn);
     case "stats":
-      return statsSchedule(scene, durationInFrames).captionIn;
+      return statsSchedule(durationInFrames).captionIn;
   }
 };

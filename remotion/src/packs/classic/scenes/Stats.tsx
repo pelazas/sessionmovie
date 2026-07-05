@@ -1,208 +1,134 @@
-import {
-  AbsoluteFill,
-  Easing,
-  interpolate,
-  useCurrentFrame,
-} from "remotion";
-import { EASE_BACK_OUT } from "../../../easing";
-import { cameraDrift } from "../../../effects";
+import { AbsoluteFill, interpolate, random, useCurrentFrame } from "remotion";
+import { EASE_POP } from "../../../motion";
 import { statsSchedule } from "../../../timing";
 import type { StatsScene } from "../../../screenplay";
 import { theme } from "../../../theme";
 import { Caption } from "../../Caption";
 import { ClockChip } from "../../ClockChip";
-import { useFactTiles } from "../../FactTiles";
-
-const countUp = (frame: number, start: number, value: number): number =>
-  Math.round(
-    interpolate(frame, [start, start + 45], [0, value], {
-      easing: Easing.out(Easing.cubic),
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    }),
-  );
+import { Panel } from "../../Panel";
+import { useCompression, useStatCards } from "../../sidecars";
 
 const pop = (frame: number, start: number): number =>
   interpolate(frame, [start, start + 14], [0, 1], {
-    easing: EASE_BACK_OUT,
+    easing: EASE_POP,
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
+const SCRAMBLE_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const LOCK_STAGGER = 2; // frames between each character locking, left to right
+
+/** Slot-machine settle: characters scramble through random glyphs then lock
+ * left-to-right onto the EXACT preformatted string — never derives a number,
+ * just reveals the string with a flourish. Seeded random() only (CLAUDE.md
+ * determinism); space/punctuation never scrambles. */
+const settle = (frame: number, start: number, text: string, seed: string): string =>
+  text
+    .split("")
+    .map((ch, i) => {
+      if (!/[A-Za-z0-9]/.test(ch)) return ch;
+      const lockAt = start + i * LOCK_STAGGER;
+      if (frame >= lockAt) return ch;
+      if (frame < start) return ch; // card not on screen yet — irrelevant, invisible
+      const idx = Math.floor(random(`${seed}-${i}-${frame}`) * SCRAMBLE_CHARS.length);
+      return SCRAMBLE_CHARS[idx];
+    })
+    .join("");
+
+/** The end card — engineered for screenshots (docs/visual-language.md "the
+ * energy kit"): compression header, up to 6 fact cards from the CLI sidecar,
+ * watermark. Drops the old achievements/grade/factTiles entirely — those
+ * numbers now live in statCards, picked CLI-side by deterministic rules. */
 export const Stats: React.FC<{
   scene: StatsScene;
-  caption?: string;
   durationInFrames: number;
-}> = ({ scene, caption, durationInFrames }) => {
+}> = ({ scene, durationInFrames }) => {
   const frame = useCurrentFrame();
-  const drift = cameraDrift(frame, "classic-stats", durationInFrames);
-  const factTiles = useFactTiles();
+  const compression = useCompression();
+  const cards = useStatCards().slice(0, 6);
+  const cols = cards.length <= 4 ? 2 : 3;
 
-  const cardIn = pop(frame, 0);
-  // Beat anchors come from the shared timing module (voiceover aligns to
-  // captionIn = gradeStart + 20).
-  const { countsStart, achievementsStart, gradeStart } = statsSchedule(scene, durationInFrames);
-  const { counts } = scene;
-  const tiles = [
-    { label: "files touched", value: `${countUp(frame, countsStart, counts.files)}`, color: theme.blue },
-    { label: "tool calls", value: `${countUp(frame, countsStart + 8, counts.tools)}`, color: theme.purple },
-    { label: "lines added", value: `+${countUp(frame, countsStart + 16, counts.added)}`, color: theme.green },
-    { label: "lines removed", value: `−${countUp(frame, countsStart + 24, counts.removed)}`, color: theme.red },
-  ];
+  const { compressionIn, cardsStart, cardStagger, watermarkIn, captionIn: captionInAt } = statsSchedule(
+    durationInFrames,
+  );
 
-  const gradeIn = pop(frame, gradeStart);
-
-  const captionIn = interpolate(frame, [gradeStart + 20, gradeStart + 40], [0, 1], {
+  const panelIn = pop(frame, 0);
+  const compressionOpacity = interpolate(frame, [compressionIn, compressionIn + 16], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const watermarkOpacity = interpolate(frame, [watermarkIn, watermarkIn + 16], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const captionIn = interpolate(frame, [captionInAt, captionInAt + 15], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
   return (
     <AbsoluteFill
-      style={{
-        backgroundColor: theme.bg,
-        fontFamily: theme.mono,
-        justifyContent: "center",
-        alignItems: "center",
-        transform: drift.transform,
-        padding: 60,
-      }}
+      style={{ backgroundColor: theme.bg, fontFamily: theme.mono, justifyContent: "center", alignItems: "center", padding: 60 }}
     >
-      <div
-        style={{
-          width: "100%",
-          backgroundColor: theme.panel,
-          border: `2px solid ${theme.panelBorder}`,
-          borderRadius: 28,
-          padding: 56,
-          opacity: cardIn,
-          transform: `scale(${0.85 + cardIn * 0.15})`,
-          position: "relative",
-        }}
+      <Panel
+        variant="stat"
+        style={{ width: "92%", maxWidth: 1500, opacity: panelIn, transform: `scale(${0.9 + panelIn * 0.1})` }}
       >
-        {/* Compression header — always show real vs movie time. */}
-        <div style={{ textAlign: "center", marginBottom: 56 }}>
-          <div style={{ color: theme.textDim, fontSize: 32, marginBottom: 16 }}>
-            session → movie
+        {compression ? (
+          <div style={{ textAlign: "center", marginBottom: 48, opacity: compressionOpacity }}>
+            <div style={{ color: theme.textDim, fontSize: 30, marginBottom: 12 }}>session → movie</div>
+            <div style={{ color: theme.textPrimary, fontSize: 68, fontWeight: 700 }}>{compression}</div>
           </div>
-          <div style={{ color: theme.text, fontSize: 76, fontWeight: 700 }}>
-            {scene.compressed.realDuration}
-            <span style={{ color: theme.yellow }}> → </span>
-            {scene.compressed.movieDuration}
-          </div>
-        </div>
-        {/* Counts grid */}
+        ) : null}
+
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 1fr",
+            gridTemplateColumns: `repeat(${cols}, 1fr)`,
             gap: 28,
-            marginBottom: 56,
           }}
         >
-          {tiles.map((tile) => (
-            <div
-              key={tile.label}
-              style={{
-                backgroundColor: theme.bg,
-                border: `2px solid ${theme.panelBorder}`,
-                borderRadius: 18,
-                padding: "32px 24px",
-                textAlign: "center",
-              }}
-            >
-              <div style={{ color: tile.color, fontSize: 66, fontWeight: 700 }}>
-                {tile.value}
-              </div>
-              <div style={{ color: theme.textDim, fontSize: 28, marginTop: 10 }}>
-                {tile.label}
-              </div>
-            </div>
-          ))}
-        </div>
-        {/* Session-fact tiles (feat/session-facts): pre-formatted CLI-side,
-            displayed verbatim — the renderer never derives a number. */}
-        {factTiles.length > 0 ? (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: `repeat(${factTiles.length}, 1fr)`,
-              gap: 28,
-              marginBottom: 56,
-            }}
-          >
-            {factTiles.map((tile, i) => {
-              const p = pop(frame, countsStart + 32 + i * 8);
-              return (
-                <div
-                  key={tile.label}
-                  style={{
-                    backgroundColor: theme.bg,
-                    border: `2px solid ${theme.yellow}`,
-                    borderRadius: 18,
-                    padding: "26px 20px",
-                    textAlign: "center",
-                    opacity: p,
-                    transform: `scale(${0.85 + p * 0.15})`,
-                  }}
-                >
-                  <div style={{ color: theme.yellow, fontSize: 54, fontWeight: 700 }}>
-                    {tile.value}
-                  </div>
-                  <div style={{ color: theme.textDim, fontSize: 24, marginTop: 8 }}>
-                    {tile.label}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : null}
-        {/* Achievements */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 20, justifyContent: "center" }}>
-          {scene.achievements.map((a, i) => {
-            const p = pop(frame, achievementsStart + i * 15);
+          {cards.map((card, i) => {
+            const start = cardsStart + i * cardStagger;
+            const p = pop(frame, start);
+            const color = card.accent === "ok" ? theme.ok : card.accent === "fail" ? theme.fail : theme.accent;
+            const displayValue = settle(frame, start, card.value, card.id);
+            // Preformatted values vary a lot in length ("7 commits" vs.
+            // "2 errors survived") — a fixed font size overflows the card's
+            // own grid column for longer phrases, so it scales down with
+            // length instead of bleeding past the card border.
+            const valueFontSize = card.value.length > 14 ? 38 : card.value.length > 7 ? 46 : 56;
             return (
               <div
-                key={a.id}
+                key={card.id}
                 style={{
-                  padding: "18px 34px",
-                  borderRadius: 999,
-                  border: `2px solid ${theme.yellow}`,
-                  color: theme.yellow,
-                  fontSize: 34,
+                  minWidth: 0,
+                  overflow: "hidden",
+                  backgroundColor: theme.bg,
+                  border: `2px solid ${theme.panelBorder}`,
+                  borderRadius: 18,
+                  padding: "28px 20px",
+                  textAlign: "center",
                   opacity: p,
-                  transform: `scale(${p})`,
+                  transform: `scale(${0.85 + p * 0.15})`,
                 }}
               >
-                🏆 {a.title}
+                <div style={{ color, fontSize: valueFontSize, fontWeight: 700, overflowWrap: "break-word" }}>
+                  {displayValue}
+                </div>
+                <div style={{ color: theme.textDim, fontSize: 24, marginTop: 10 }}>{card.label}</div>
               </div>
             );
           })}
         </div>
-        {/* The slightly judgmental grade, stamped on. */}
-        {scene.grade ? (
-          <div
-            style={{
-              position: "absolute",
-              top: -30,
-              right: -20,
-              padding: "20px 36px",
-              borderRadius: 20,
-              border: `6px solid ${theme.green}`,
-              color: theme.green,
-              backgroundColor: theme.bg,
-              fontSize: 96,
-              fontWeight: 700,
-              opacity: gradeIn,
-              transform: `rotate(12deg) scale(${gradeIn === 0 ? 0 : 2.2 - gradeIn * 1.2})`,
-            }}
-          >
-            {scene.grade}
-          </div>
-        ) : null}
+      </Panel>
+
+      <div style={{ position: "absolute", bottom: 50, color: theme.textDim, fontSize: 26, opacity: watermarkOpacity }}>
+        made with sessionmovie
       </div>
+
       <ClockChip />
-      {caption ? <Caption text={caption} opacity={captionIn} /> : null}
+      {scene.caption ? <Caption text={scene.caption} opacity={captionIn} /> : null}
     </AbsoluteFill>
   );
 };

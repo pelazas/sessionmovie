@@ -1,6 +1,7 @@
 /**
- * Session facts: builder, pricing lookup, tile picking, digest line, and the
- * sceneTimes producer — all against synthetic timelines (no fixtures, CI-safe).
+ * Session facts: builder, pricing lookup, digest line, stat cards/title meta,
+ * and the sceneTimes producer — all against synthetic timelines (no
+ * fixtures, CI-safe).
  *
  * Run: node --import tsx --test src/facts/facts.test.ts
  */
@@ -13,7 +14,6 @@ import {
   compressionLine,
   factsDigestLine,
   formatTokens,
-  pickFactTiles,
   pickStatCards,
   titleMetaFor,
 } from "./facts.js";
@@ -105,36 +105,6 @@ describe("buildSessionFacts", () => {
   });
 });
 
-describe("pickFactTiles (deterministic interestingness)", () => {
-  it("picks the top 3 in rule order", () => {
-    const tiles = pickFactTiles(buildSessionFacts(baseTimeline()));
-    assert.deepEqual(
-      tiles.map((t) => t.label),
-      ["API-equivalent spend (est.)", "saved by prompt cache (est.)", "subagents summoned"],
-    );
-    assert.equal(tiles[0]?.value, "≈$4.05");
-  });
-
-  it("falls back to total tokens when nothing clears a threshold", () => {
-    const t = baseTimeline();
-    delete t.models; // no cost
-    t.toolCalls = [];
-    t.rhythm = { activeSec: 100, idleSec: 0, longestPauseSec: 90, peakToolCallsPerMinute: 3 };
-    const tiles = pickFactTiles(buildSessionFacts(t));
-    assert.deepEqual(tiles, [{ label: "tokens", value: "1.0M" }]);
-  });
-
-  it("returns no tiles for a factless session (old transcript)", () => {
-    const t = baseTimeline();
-    delete t.usage;
-    delete t.models;
-    delete t.rhythm;
-    t.toolCalls = [];
-    t.commands = [];
-    assert.deepEqual(pickFactTiles(buildSessionFacts(t)), []);
-  });
-});
-
 describe("factsDigestLine", () => {
   it("is one compact line with only the available parts", () => {
     const line = factsDigestLine(buildSessionFacts(baseTimeline()));
@@ -197,6 +167,27 @@ describe("sceneTimesFor", () => {
     assert.equal(times[3], null);
   });
 
+  it("create artifact anchors to its first file, basename-matched like edit", () => {
+    const createScreenplay: Screenplay = {
+      ...screenplay,
+      scenes: [
+        {
+          type: "action",
+          artifact: { kind: "create", files: ["src/auth.ts", "src/other.ts"] },
+          targetSec: 10,
+        },
+        {
+          type: "action",
+          artifact: { kind: "subagents", tasks: ["look into it"] },
+          targetSec: 10,
+        },
+      ],
+    };
+    const times = sceneTimesFor(createScreenplay, baseTimeline());
+    assert.equal(times[0], formatClock("2026-07-04T07:23:56.861Z")); // first file (auth.ts) basename match
+    assert.equal(times[1], null); // subagents: no single timeline entry to anchor to
+  });
+
   it("formatClock is HH:MM and rejects garbage", () => {
     assert.match(formatClock("2026-07-04T07:23:56.861Z") ?? "", /^\d{2}:\d{2}$/);
     assert.equal(formatClock("not a date"), null);
@@ -211,15 +202,18 @@ describe("pickStatCards", () => {
       cards.map((c) => c.id),
       ["lines", "files", "tests", "errors", "subagents", "commits"],
     );
+    // Display contract: value is a compact figure, label carries the words —
+    // a card should never repeat itself ("10" + "files touched", not
+    // "10 files" + "files touched").
     assert.equal(cards[0]?.value, "+40 / −10");
     assert.equal(cards[0]?.accent, undefined);
-    assert.equal(cards[1]?.value, "1 file");
-    assert.equal(cards[2]?.value, "2 test runs · 1 green");
+    assert.equal(cards[1]?.value, "1");
+    assert.equal(cards[2]?.value, "2 · 1 green");
     assert.equal(cards[2]?.accent, "ok"); // last test run (the second "npm test") exited 0
-    assert.equal(cards[3]?.value, "2 errors survived");
+    assert.equal(cards[3]?.value, "2");
     assert.equal(cards[3]?.accent, undefined); // last command overall (gh pr create) did not exit 0
-    assert.equal(cards[4]?.value, "3 subagents");
-    assert.equal(cards[5]?.value, "2 commits");
+    assert.equal(cards[4]?.value, "3");
+    assert.equal(cards[5]?.value, "2");
   });
 
   it("raising max lets the universal cards (tool calls, turns) back in", () => {
@@ -228,8 +222,8 @@ describe("pickStatCards", () => {
       cards.map((c) => c.id),
       ["lines", "files", "tests", "errors", "subagents", "commits", "toolCalls", "turns"],
     );
-    assert.equal(cards[6]?.value, "4 tool calls");
-    assert.equal(cards[7]?.value, "4 turns"); // 2 user turns + 2 assistant turns
+    assert.equal(cards[6]?.value, "4");
+    assert.equal(cards[7]?.value, "4"); // 2 user turns + 2 assistant turns
   });
 
   it("skips every conditional card for a bare timeline; the two universal ones always show", () => {
@@ -243,7 +237,7 @@ describe("pickStatCards", () => {
       cards.map((c) => c.id),
       ["toolCalls", "turns"],
     );
-    assert.equal(cards[0]?.value, "0 tool calls");
+    assert.equal(cards[0]?.value, "0");
   });
 
   it("errors survived gets an ok accent when the last command overall went green", () => {
@@ -258,12 +252,14 @@ describe("pickStatCards", () => {
     assert.equal(errors?.accent, "ok");
   });
 
-  it("singular nouns for a count of one", () => {
+  it("value is the bare count regardless of plurality — the label doesn't repeat it", () => {
     const t = baseTimeline();
     t.diffs = [{ file: "a.ts", added: 1, removed: 0, turnIndex: 0 }];
     t.totals = { ...t.totals, added: 1, removed: 0, filesTouched: 1 };
     const cards = pickStatCards(t);
-    assert.equal(cards.find((c) => c.id === "files")?.value, "1 file");
+    const files = cards.find((c) => c.id === "files");
+    assert.equal(files?.value, "1");
+    assert.equal(files?.label, "files touched");
   });
 });
 

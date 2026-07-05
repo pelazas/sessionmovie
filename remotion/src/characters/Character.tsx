@@ -110,8 +110,11 @@ export const Character: React.FC<{
     <svg width={width} height={sizePx} viewBox={RIG_VIEWBOX} role="img" aria-label={`${who} ${emotion} ${active}`}
       style={{ ...style, overflow: "visible", transformOrigin: "bottom center",
         transform: `${flip ? "scaleX(-1) " : ""}translateY(${(-lift).toFixed(2)}px) scaleX(${sq.scaleX.toFixed(3)}) scaleY(${sq.scaleY.toFixed(3)})` }}>
-      {extra}
       <PuppetFrame emotion={emotion} rig={rig} blink={blinking} art={art} />
+      {/* extra paints AFTER the puppet (SVG z-order): thinking-dots/mini-claudes
+          must never be hidden behind the opaque body if their offset happens
+          to land within its silhouette (seed-dependent). */}
+      {extra}
     </svg>
   );
 };
