@@ -1,17 +1,16 @@
 import { AbsoluteFill, Series, useCurrentFrame, useVideoConfig } from "remotion";
-import type { FactTile, StatCard, TitleMeta } from "../../../src/facts/types";
+import type { StatCard, TitleMeta } from "../../../src/facts/types";
 import type { UserIdentity } from "../../../src/identity/types";
 import type { VoiceoverManifest } from "../../../src/voiceover/types";
+import { DEFAULT_IDENTITY, IdentityContext } from "../characters/identity";
 import { SceneTimeContext } from "./ClockChip";
-import { FactTilesContext } from "./FactTiles";
+import { CompressionContext, StatCardsContext, TitleMetaContext } from "./sidecars";
 import { sceneLocalCue } from "./voiceoverSync";
 import type { Scene, Screenplay } from "../screenplay";
+import { theme } from "../theme";
 import { flash } from "../motion";
 import { sceneCutFrames, sceneFrames } from "../timing";
 import { VoiceoverCueContext, type GenrePack } from "./types";
-
-/** Stable default so a missing sidecar never churns the context value. */
-const EMPTY_TILES: FactTile[] = [];
 
 /**
  * One composition body shared by every pack: audio layer + a Series of
@@ -58,7 +57,7 @@ export const makePackComposition = (pack: GenrePack): React.FC<Screenplay> => {
     return (
       <AbsoluteFill
         style={{
-          backgroundColor: "#dfe7f0",
+          backgroundColor: theme.accentSoft,
           opacity: opacity * 0.85,
           pointerEvents: "none",
         }}
@@ -71,23 +70,25 @@ export const makePackComposition = (pack: GenrePack): React.FC<Screenplay> => {
     Screenplay & {
       voiceover?: VoiceoverManifest;
       sceneTimes?: (string | null)[];
-      factTiles?: FactTile[];
-      // PR-G sidecars: type-only for now — PR-E switches the stats/title
-      // scenes to consume these and retires factTiles/sceneTimes.
       statCards?: StatCard[];
       compressionLine?: string;
       titleMeta?: TitleMeta;
       // identity sidecar (rewrite/identity, PR-F): consumed by the character
-      // rig once it lands; not read by any scene component yet.
+      // rig via IdentityContext.
       identity?: UserIdentity;
     }
   > = (screenplay) => {
     const { fps } = useVideoConfig();
     return (
       <AbsoluteFill style={{ backgroundColor: pack.background }}>
-        {/* factTiles sidecar (feat/session-facts): pre-formatted stat tiles,
-            consumed by the stats scene via useFactTiles. */}
-        <FactTilesContext.Provider value={screenplay.factTiles ?? EMPTY_TILES}>
+        {/* no-genre sidecars (PR-G data, PR-E consumption): identity for the
+            character rig, statCards/compressionLine/titleMeta for the stats
+            and title scenes. factTiles/achievements/grade are retired — the
+            same numbers now live in statCards. */}
+        <IdentityContext.Provider value={screenplay.identity ?? DEFAULT_IDENTITY}>
+        <StatCardsContext.Provider value={screenplay.statCards ?? []}>
+        <TitleMetaContext.Provider value={screenplay.titleMeta ?? {}}>
+        <CompressionContext.Provider value={screenplay.compressionLine ?? null}>
         <pack.Audio screenplay={screenplay} />
         <Series>
           {screenplay.scenes.map((scene, i) => {
@@ -110,7 +111,10 @@ export const makePackComposition = (pack: GenrePack): React.FC<Screenplay> => {
         </Series>
         {/* scene-transitions block (feat/effects): overlay above the scenes */}
         <CutTransitions screenplay={screenplay} />
-        </FactTilesContext.Provider>
+        </CompressionContext.Provider>
+        </TitleMetaContext.Provider>
+        </StatCardsContext.Provider>
+        </IdentityContext.Provider>
       </AbsoluteFill>
     );
   };

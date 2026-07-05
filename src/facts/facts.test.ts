@@ -1,6 +1,7 @@
 /**
- * Session facts: builder, pricing lookup, tile picking, digest line, and the
- * sceneTimes producer — all against synthetic timelines (no fixtures, CI-safe).
+ * Session facts: builder, pricing lookup, digest line, stat cards/title meta,
+ * and the sceneTimes producer — all against synthetic timelines (no
+ * fixtures, CI-safe).
  *
  * Run: node --import tsx --test src/facts/facts.test.ts
  */
@@ -13,7 +14,6 @@ import {
   compressionLine,
   factsDigestLine,
   formatTokens,
-  pickFactTiles,
   pickStatCards,
   titleMetaFor,
 } from "./facts.js";
@@ -105,36 +105,6 @@ describe("buildSessionFacts", () => {
   });
 });
 
-describe("pickFactTiles (deterministic interestingness)", () => {
-  it("picks the top 3 in rule order", () => {
-    const tiles = pickFactTiles(buildSessionFacts(baseTimeline()));
-    assert.deepEqual(
-      tiles.map((t) => t.label),
-      ["API-equivalent spend (est.)", "saved by prompt cache (est.)", "subagents summoned"],
-    );
-    assert.equal(tiles[0]?.value, "≈$4.05");
-  });
-
-  it("falls back to total tokens when nothing clears a threshold", () => {
-    const t = baseTimeline();
-    delete t.models; // no cost
-    t.toolCalls = [];
-    t.rhythm = { activeSec: 100, idleSec: 0, longestPauseSec: 90, peakToolCallsPerMinute: 3 };
-    const tiles = pickFactTiles(buildSessionFacts(t));
-    assert.deepEqual(tiles, [{ label: "tokens", value: "1.0M" }]);
-  });
-
-  it("returns no tiles for a factless session (old transcript)", () => {
-    const t = baseTimeline();
-    delete t.usage;
-    delete t.models;
-    delete t.rhythm;
-    t.toolCalls = [];
-    t.commands = [];
-    assert.deepEqual(pickFactTiles(buildSessionFacts(t)), []);
-  });
-});
-
 describe("factsDigestLine", () => {
   it("is one compact line with only the available parts", () => {
     const line = factsDigestLine(buildSessionFacts(baseTimeline()));
@@ -195,6 +165,27 @@ describe("sceneTimesFor", () => {
     const times = sceneTimesFor(screenplay, t);
     assert.equal(times[2], null);
     assert.equal(times[3], null);
+  });
+
+  it("create artifact anchors to its first file, basename-matched like edit", () => {
+    const createScreenplay: Screenplay = {
+      ...screenplay,
+      scenes: [
+        {
+          type: "action",
+          artifact: { kind: "create", files: ["src/auth.ts", "src/other.ts"] },
+          targetSec: 10,
+        },
+        {
+          type: "action",
+          artifact: { kind: "subagents", tasks: ["look into it"] },
+          targetSec: 10,
+        },
+      ],
+    };
+    const times = sceneTimesFor(createScreenplay, baseTimeline());
+    assert.equal(times[0], formatClock("2026-07-04T07:23:56.861Z")); // first file (auth.ts) basename match
+    assert.equal(times[1], null); // subagents: no single timeline entry to anchor to
   });
 
   it("formatClock is HH:MM and rejects garbage", () => {
