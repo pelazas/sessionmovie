@@ -1,6 +1,6 @@
 # Genre packs
 
-A genre pack is a costume for the screenplay. Same story, different world. Packs are the project's plugin surface and its main contribution ramp — the core is hard, a pack is fun.
+A genre pack is a costume for the screenplay. Same story, different world. Packs remain the project's extension seam and its main contribution ramp — but for now there is exactly one: **`classic`**, the reference implementation and permanent fallback. `quest` is removed; the no-genre rewrite (docs/visual-language.md, docs/characters.md) is the single shipped look until a second pack earns its keep.
 
 ## The contract
 
@@ -22,23 +22,9 @@ interface GenrePack {
 }
 ```
 
-Registration: `registerGenre(pack)` into the registry; selected via `--genre <id>`. `classic` is the reference implementation and permanent fallback — minimal, genre-free, always works, and the template new packs copy.
+Registration: `registerGenre(pack)` into the registry; selected via `--genre <id>`. `classic` is the reference implementation and permanent fallback — minimal, genre-free, always works, and the template a second pack would copy.
 
-## A genre decides what a scene *is*
-
-The screenplay says `dialogue`; the pack decides what that means in its world:
-
-| Scene | classic | heist | sports replay | nature documentary | horror |
-|---|---|---|---|---|---|
-| `title` | clean typographic card | *"THE JOB: 1 bug. 9 files. 47 min."* | matchday graphics | episode title over landscape | grainy warning card |
-| `dialogue` | speech bubbles, editor backdrop | dim planning-table scene | commentary booth, two pundits | subtitled field observations | flashlight-lit exchanges |
-| `action` | tool-chip montage | slick multi-cam prep montage | play-by-play with telestrator arrows | time-lapse of the habitat | tense corridor cuts |
-| `showcase(fail)` | red flash, record scratch | alarm trips, plan interrupted | slow-mo replay of the miss | *"the hunt fails. the pack goes hungry."* | jump scare |
-| `stats` | stat card + achievements | *"CLEAN GETAWAY"* debrief | full-time scoreboard | end-of-episode narration | survivor card |
-
-The `captionPersona` carries the voice: deadpan Attenborough for nature-doc (*"here we observe the agent, reading the same file for the fourth time. it has not lost hope."*), clipped Ocean's-Eleven cool for heist, breathless pundits for sports.
-
-## Writing a pack (contributor path)
+## Writing a pack (contributor path, once genre #2 is worth building)
 
 1. Copy `packs/classic/`.
 2. Replace the five scene components (theme tokens do most of the visual lifting).
@@ -53,32 +39,16 @@ Rules:
 - No new scene types. The escape hatch (post-v1) is an optional `custom` scene with a mandatory fallback rendering.
 - Determinism rules apply (seeded `random()` only).
 
-## Genre selection — who picks, and how
+## Punch-up: retired until genre #2
 
-Two layers, deliberately separate:
-
-**Layer 1 — deterministic default (CLI, no LLM).** `Timeline.totals` is a session fingerprint; a rules table evaluated top-down, first match wins:
-
-| Session shape (from totals) | Auto genre | Why |
-|---|---|---|
-| `failedCommands ≥ 3`, final command green | `quest` | the comeback story — battles lost, war won |
-| `failedCommands ≥ 3`, ends red | `horror` | it never worked |
-| clean run (0 failures), files touched | `heist` | in, out, nobody saw us |
-| read-heavy (reads ≫ edits), long duration | `nature-doc` | observing the agent forage |
-| everything else | `classic` | the reference look |
-
-Rules are code, testable: each fixture's golden pins its auto-genre, so a rules change shows up as a reviewed diff. Until a pack ships, its rule falls through to `classic`.
-
-**Layer 2 — overrides.** `--genre <id>` always wins. Optionally the screenwriter *suggests* a genre during the beat pass (it's the only thing that has read the story) — the suggestion travels as a **sidecar next to the screenplay, never inside it**: the screenplay stays genre-neutral so re-rendering in another genre never re-runs analysis.
+The punch-up pass (rewriting screenplay text in a genre's persona voice, structure frozen and enforced by code — see the old `src/screenwriter/punchup.ts`) only does anything when there's a second voice to punch up *into*. With one pack, there's nothing to differentiate, so the pass is retired rather than kept running a no-op. It returns, unchanged in design, the day a second genre pack ships: same structural-fingerprint enforcement, same frozen dialogue text, same caption-anchor survival rules (docs/v1-storychange.md).
 
 ## Extraction status
 
-Done (PR #17): packs live in `remotion/src/packs/<id>/`, register via `registerGenre` (registration is a module **side effect** — consumers must import the `PACKS` value, not re-export it, or bundlers drop it), Root maps one `<Composition>` per pack with per-pack `calculateMetadata`, the CLI resolves `--genre` through `src/genre/compositions.ts`, and `remotion/src/timing.ts` owns every per-scene schedule — scenes, audio cues, and voiceover alignment all read the same functions (the old mirrored constants are gone).
-
-The implemented contract (`remotion/src/packs/types.ts`) is deliberately leaner than the original sketch: `audio` is one `Audio` component (subsuming track/beatGrid/sfx wiring), `theme` is the pack's own token module plus a `background` color on the pack, and `pacing` is deferred until a pack actually needs to clamp differently. types.ts is the source of truth; this page describes it, not the other way around.
+The `GenrePack` interface above, the registry, and the per-pack composition wiring were built for two packs (`classic` + `quest`, PR #17) and are still in the tree at `remotion/src/packs/` — this doc describes the interface as it exists, not as an aspiration. With `quest` removed and no second pack currently shipping, the abstraction is dormant rather than deleted: `classic` is hardcoded as the one true look for now (docs/visual-language.md), and the registry/interface stay in place as the seam a real genre #2 would plug into, per the project's "abstraction is extracted at the second consumer" rule (CLAUDE.md) — the second consumer already existed once; it isn't currently shipping.
 
 ## Planned packs
 
-- **v1:** `classic` (reference). ✅ shipped
-- **`quest`** ✅ shipped (PR #17) — the flagship: the session as a monster hunt, the two characters center stage. `action` = battle log against THE BUG (HP bar included), `showcase(fail)` = the boss lands a hit, `showcase(pass)` = boss defeated, `dialogue` = campfire, `stats` = victory screen.
-- **Then:** `heist`, `nature-doc`, `horror`, `sports-replay` — and community PRs. Copy `packs/quest/` as the template.
+- **Shipped:** `classic` (reference, permanent fallback).
+- **Removed:** `quest` — was the session-as-monster-hunt flagship; retired with the no-genre rewrite.
+- **Future:** a second pack revives the extension seam (and punch-up) when one is worth building. Copy `packs/classic/` as the template.

@@ -1,6 +1,8 @@
 # v1 story change: recognition & text economy
 
-The rules that decide whether a movie *lands* for the person who lived the session. Written after the first full-pipeline render (2026-07-04): the quest persona translated a real day into fantasy dialect, and the owner of the session couldn't recognize his own moments. These rules fix that class of failure. They govern prompt v4+, the punch-up pass, and both packs' renderers.
+> **Superseded in part by the no-genre rewrite.** The cold-open item below and the punch-up-pass references are retired — see docs/screenplay-format.md (no cold open, the narrative grammar), docs/visual-language.md (the pair structure), and docs/genre-packs.md (punch-up returns with genre #2). Everything else here — the you-were-there test, dialogue-is-documentary, text economy — still governs the screenwriter and renderer.
+
+The rules that decide whether a movie *lands* for the person who lived the session. Written after the first full-pipeline render (2026-07-04): the quest persona translated a real day into fantasy dialect, and the owner of the session couldn't recognize his own moments. These rules fix that class of failure. They governed prompt v4+, the punch-up pass, and both packs' renderers.
 
 ## The prime directive: the you-were-there test
 
