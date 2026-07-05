@@ -137,6 +137,23 @@ export const dialogueLeadSchedule = (
   };
 };
 
+/** THE VO SEAM (PR-H): Dialogue.tsx calls ONLY this. Today one caption cue
+ * drives the whole scene's lead-in; PR-H reimplements this to start each
+ * bubble at its own line's VO cue — Dialogue.tsx does not change. */
+export interface BubbleSchedule {
+  lineStart: (i: number) => number;
+  usable: number;
+  captionIn: number;
+}
+export const dialogueBubbleSchedule = (
+  scene: DialogueScene,
+  durationInFrames: number,
+  cueEndFrame: number | null,
+): BubbleSchedule => {
+  const s = dialogueLeadSchedule(scene, durationInFrames, cueEndFrame);
+  return { lineStart: s.lineStart, usable: s.usable, captionIn: s.captionIn };
+};
+
 // ── stats (cards come from the sidecar) ─────────────────────────────────────
 
 export interface StatsSchedule {

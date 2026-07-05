@@ -14,9 +14,8 @@ import { ClockChip } from "../../ClockChip";
  * no voiceover cue is ever assigned to it. */
 export const Title: React.FC<{
   scene: TitleScene;
-  caption?: string;
   durationInFrames: number;
-}> = ({ scene, caption, durationInFrames }) => {
+}> = ({ scene, durationInFrames }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const meta = useTitleMeta();
@@ -110,7 +109,7 @@ export const Title: React.FC<{
       </div>
 
       <ClockChip />
-      {caption ? <Caption text={caption} opacity={captionIn} /> : null}
+      {scene.caption ? <Caption text={scene.caption} opacity={captionIn} /> : null}
     </AbsoluteFill>
   );
 };

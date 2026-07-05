@@ -12,9 +12,8 @@ import { ArtifactPanel, SubagentTasks } from "../ArtifactPanel";
  * "tone rule"). Action is SILENT — no voiceover cue is ever assigned to it. */
 export const Action: React.FC<{
   scene: ActionScene;
-  caption?: string;
   durationInFrames: number;
-}> = ({ scene, caption, durationInFrames }) => {
+}> = ({ scene, durationInFrames }) => {
   const frame = useCurrentFrame();
   const { revealStart, captionIn: captionInAt } = artifactSchedule(durationInFrames);
   const captionIn = interpolate(frame, [captionInAt, captionInAt + 17], [0, 1], {
@@ -32,7 +31,7 @@ export const Action: React.FC<{
         </div>
         <Character who="claude" emotion="neutral" clip="subagent-spawn" sizePx={280} seed="action-subagents" />
         <ClockChip />
-        {caption ? <Caption text={caption} opacity={captionIn} /> : null}
+        {scene.caption ? <Caption text={scene.caption} opacity={captionIn} /> : null}
       </AbsoluteFill>
     );
   }
@@ -44,25 +43,28 @@ export const Action: React.FC<{
     <AbsoluteFill
       style={{ backgroundColor: theme.bg, fontFamily: theme.mono, justifyContent: "center", alignItems: "center", padding: 60 }}
     >
-      <ArtifactPanel artifact={scene.artifact} durationInFrames={durationInFrames} style={{ width: "88%", maxWidth: 1500 }} />
+      <div style={{ width: "88%", maxWidth: 1500 }}>
+        <ArtifactPanel artifact={scene.artifact} durationInFrames={durationInFrames} />
+      </div>
 
       {/* corner reaction: types along, then reacts at the reveal — two
           Sequences so the squash-bounce hard-cut mask re-fires on the clip
           change (motion.ts squashBounce). */}
       <Sequence from={0} durationInFrames={revealStart} layout="none">
-        <CornerMascot clip="typing" emotion="confident" seed="action-corner" />
+        <CornerMascot clip="typing" emotion="confident" corner="bottom-left" seed="action-corner" />
       </Sequence>
       <Sequence from={revealStart} layout="none">
         <CornerMascot
           clip={failed ? "error-shake" : passed ? "celebrate" : "typing"}
           emotion={failed ? "panicking" : passed ? "celebrating" : "confident"}
           confetti={passed}
+          corner="bottom-left"
           seed="action-corner"
         />
       </Sequence>
 
       <ClockChip />
-      {caption ? <Caption text={caption} opacity={captionIn} /> : null}
+      {scene.caption ? <Caption text={scene.caption} opacity={captionIn} /> : null}
     </AbsoluteFill>
   );
 };

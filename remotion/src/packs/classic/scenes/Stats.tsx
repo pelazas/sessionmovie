@@ -1,4 +1,4 @@
-import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, random, useCurrentFrame } from "remotion";
 import { EASE_POP } from "../../../motion";
 import { statsSchedule } from "../../../timing";
 import type { StatsScene } from "../../../screenplay";
@@ -8,11 +8,6 @@ import { ClockChip } from "../../ClockChip";
 import { Panel } from "../../Panel";
 import { useCompression, useStatCards } from "../../sidecars";
 
-/** A value the CLI formatted as a bare (optionally-signed) integer — the only
- * shape a number-roll is allowed to animate; every other preformatted phrase
- * ("6 files touched", "+9 / −4") is displayed verbatim, never re-derived. */
-const NUMBER_ROLL = /^\+?\d+$/;
-
 const pop = (frame: number, start: number): number =>
   interpolate(frame, [start, start + 14], [0, 1], {
     easing: EASE_POP,
@@ -20,18 +15,38 @@ const pop = (frame: number, start: number): number =>
     extrapolateRight: "clamp",
   });
 
+const SCRAMBLE_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const LOCK_STAGGER = 2; // frames between each character locking, left to right
+
+/** Slot-machine settle: characters scramble through random glyphs then lock
+ * left-to-right onto the EXACT preformatted string — never derives a number,
+ * just reveals the string with a flourish. Seeded random() only (CLAUDE.md
+ * determinism); space/punctuation never scrambles. */
+const settle = (frame: number, start: number, text: string, seed: string): string =>
+  text
+    .split("")
+    .map((ch, i) => {
+      if (!/[A-Za-z0-9]/.test(ch)) return ch;
+      const lockAt = start + i * LOCK_STAGGER;
+      if (frame >= lockAt) return ch;
+      if (frame < start) return ch; // card not on screen yet — irrelevant, invisible
+      const idx = Math.floor(random(`${seed}-${i}-${frame}`) * SCRAMBLE_CHARS.length);
+      return SCRAMBLE_CHARS[idx];
+    })
+    .join("");
+
 /** The end card — engineered for screenshots (docs/visual-language.md "the
  * energy kit"): compression header, up to 6 fact cards from the CLI sidecar,
  * watermark. Drops the old achievements/grade/factTiles entirely — those
  * numbers now live in statCards, picked CLI-side by deterministic rules. */
 export const Stats: React.FC<{
   scene: StatsScene;
-  caption?: string;
   durationInFrames: number;
-}> = ({ scene, caption, durationInFrames }) => {
+}> = ({ scene, durationInFrames }) => {
   const frame = useCurrentFrame();
   const compression = useCompression();
   const cards = useStatCards().slice(0, 6);
+  const cols = cards.length <= 4 ? 2 : 3;
 
   const { compressionIn, cardsStart, cardStagger, watermarkIn, captionIn: captionInAt } = statsSchedule(
     durationInFrames,
@@ -69,29 +84,20 @@ export const Stats: React.FC<{
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: `repeat(${Math.min(3, Math.max(1, cards.length))}, 1fr)`,
+            gridTemplateColumns: `repeat(${cols}, 1fr)`,
             gap: 28,
           }}
         >
           {cards.map((card, i) => {
-            const p = pop(frame, cardsStart + i * cardStagger);
+            const start = cardsStart + i * cardStagger;
+            const p = pop(frame, start);
             const color = card.accent === "ok" ? theme.ok : card.accent === "fail" ? theme.fail : theme.accent;
-            const rolling = NUMBER_ROLL.test(card.value);
-            const displayValue = rolling
-              ? `${card.value.startsWith("+") ? "+" : ""}${Math.round(
-                  interpolate(
-                    frame,
-                    [cardsStart + i * cardStagger, cardsStart + i * cardStagger + 30],
-                    [0, Number(card.value.replace("+", ""))],
-                    { easing: Easing.out(Easing.cubic), extrapolateLeft: "clamp", extrapolateRight: "clamp" },
-                  ),
-                )}`
-              : card.value;
+            const displayValue = settle(frame, start, card.value, card.id);
             // Preformatted values vary a lot in length ("7 commits" vs.
             // "2 errors survived") — a fixed font size overflows the card's
-            // own 1fr grid column for longer phrases, so it scales down with
+            // own grid column for longer phrases, so it scales down with
             // length instead of bleeding past the card border.
-            const valueFontSize = displayValue.length > 14 ? 38 : displayValue.length > 7 ? 46 : 56;
+            const valueFontSize = card.value.length > 14 ? 38 : card.value.length > 7 ? 46 : 56;
             return (
               <div
                 key={card.id}
@@ -122,7 +128,7 @@ export const Stats: React.FC<{
       </div>
 
       <ClockChip />
-      {caption ? <Caption text={caption} opacity={captionIn} /> : null}
+      {scene.caption ? <Caption text={scene.caption} opacity={captionIn} /> : null}
     </AbsoluteFill>
   );
 };

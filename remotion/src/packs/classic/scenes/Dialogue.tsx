@@ -1,7 +1,7 @@
 import { useContext } from "react";
 import { AbsoluteFill, Sequence, interpolate, useCurrentFrame } from "remotion";
 import { EASE, EASE_POP } from "../../../motion";
-import { dialogueLeadSchedule } from "../../../timing";
+import { dialogueBubbleSchedule } from "../../../timing";
 import { Character } from "../../../characters/Character";
 import type { DialogueScene, Emotion } from "../../../screenplay";
 import { theme } from "../../../theme";
@@ -15,17 +15,16 @@ import { VoiceoverCueContext } from "../../types";
 // speaking puppet wears the line's emotion.
 export const Dialogue: React.FC<{
   scene: DialogueScene;
-  caption?: string;
   durationInFrames: number;
-}> = ({ scene, caption, durationInFrames }) => {
+}> = ({ scene, durationInFrames }) => {
   const frame = useCurrentFrame();
   const cue = useContext(VoiceoverCueContext);
 
-  // One voice at a time (docs/v1-storychange.md): with narration, caption +
-  // cue play as a lead-in and the bubble train runs after; without, bubbles
-  // start immediately and a caption is a closing beat after the last bubble.
-  // All the math lives in timing.ts (dialogueLeadSchedule) — kept verbatim.
-  const { usable, lineStart } = dialogueLeadSchedule(
+  // THE VO SEAM (PR-H): this scene calls ONLY dialogueBubbleSchedule — today
+  // it's a thin wrapper over dialogueLeadSchedule (one caption cue drives the
+  // whole scene's lead-in); PR-H reimplements the seam to start each bubble
+  // at its own line's cue without touching this file.
+  const { usable, lineStart } = dialogueBubbleSchedule(
     scene,
     durationInFrames,
     cue ? cue.endFrame : null,
@@ -36,7 +35,6 @@ export const Dialogue: React.FC<{
   for (let i = 0; i < scene.lines.length; i++) {
     if (frame >= lineStart(i)) activeIndex = i;
   }
-  const activeSpeaker = activeIndex >= 0 ? scene.lines[activeIndex]?.speaker : undefined;
 
   // Each puppet holds its most recent line's emotion; neutral before speaking.
   const lastEmotion = (speaker: "user" | "claude"): Emotion => {
@@ -45,6 +43,15 @@ export const Dialogue: React.FC<{
       if (line && line.speaker === speaker) return line.emotion;
     }
     return "neutral";
+  };
+
+  // Index of this speaker's own latest line at or before the active line —
+  // -1 if they haven't spoken yet.
+  const speakerLineIndex = (speaker: "user" | "claude"): number => {
+    for (let i = activeIndex; i >= 0; i--) {
+      if (scene.lines[i]?.speaker === speaker) return i;
+    }
+    return -1;
   };
 
   // Closing-beat caption opacity for cueless captions (with a cue, Caption
@@ -59,14 +66,15 @@ export const Dialogue: React.FC<{
     extrapolateRight: "clamp",
   });
 
-  // The active speaker's puppet re-fires its squash-bounce beat every time
-  // it's their turn (motion.ts: wrap in a <Sequence> to re-fire on cut); the
-  // listening puppet just holds its last emotion, uninterrupted.
+  // Each puppet's squash-bounce beat re-fires at ITS OWN latest line (motion.ts:
+  // wrap in a <Sequence> to re-fire on cut) — before their first line, render
+  // unwrapped (no line to key a Sequence's `from` off yet).
   const puppet = (speaker: "user" | "claude", flip: boolean) => {
     const emotion = lastEmotion(speaker);
     const el = <Character who={speaker} emotion={emotion} sizePx={290} flip={flip} seed={`dialogue-${speaker}`} />;
-    return activeSpeaker === speaker ? (
-      <Sequence from={lineStart(activeIndex)} layout="none">
+    const li = speakerLineIndex(speaker);
+    return li >= 0 ? (
+      <Sequence from={lineStart(li)} layout="none">
         {el}
       </Sequence>
     ) : (
@@ -157,7 +165,7 @@ export const Dialogue: React.FC<{
 
       <ClockChip />
 
-      {caption ? <Caption text={caption} opacity={captionIn} /> : null}
+      {scene.caption ? <Caption text={scene.caption} opacity={captionIn} /> : null}
     </AbsoluteFill>
   );
 };

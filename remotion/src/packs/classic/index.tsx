@@ -17,21 +17,11 @@ export const classicPack: GenrePack = {
   id: "classic",
   compositionId: "Classic",
   components: {
-    title: ({ scene, durationInFrames }) => (
-      <Title scene={scene} caption={scene.caption} durationInFrames={durationInFrames} />
-    ),
-    dialogue: ({ scene, durationInFrames }) => (
-      <Dialogue scene={scene} caption={scene.caption} durationInFrames={durationInFrames} />
-    ),
-    action: ({ scene, durationInFrames }) => (
-      <Action scene={scene} caption={scene.caption} durationInFrames={durationInFrames} />
-    ),
-    showcase: ({ scene, durationInFrames }) => (
-      <Showcase scene={scene} caption={scene.caption} durationInFrames={durationInFrames} />
-    ),
-    stats: ({ scene, durationInFrames }) => (
-      <Stats scene={scene} caption={scene.caption} durationInFrames={durationInFrames} />
-    ),
+    title: ({ scene, durationInFrames }) => <Title scene={scene} durationInFrames={durationInFrames} />,
+    dialogue: ({ scene, durationInFrames }) => <Dialogue scene={scene} durationInFrames={durationInFrames} />,
+    action: ({ scene, durationInFrames }) => <Action scene={scene} durationInFrames={durationInFrames} />,
+    showcase: ({ scene, durationInFrames }) => <Showcase scene={scene} durationInFrames={durationInFrames} />,
+    stats: ({ scene, durationInFrames }) => <Stats scene={scene} durationInFrames={durationInFrames} />,
   },
   Audio: ClassicAudio,
   background: theme.bg,
