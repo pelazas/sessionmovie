@@ -3,12 +3,12 @@
  *
  * The raw transcript can be hundreds of thousands of tokens; the screenwriter
  * reads this digest instead (docs/architecture.md, stage 1 "Digest generation").
- * Per turn: the user prompt (the user's side of the exchange), then what the
- * agent did that turn (its side) — tools used, diffs with sizes and new-file
- * markers, subagent dispatches, and command results with exit codes. That is
- * everything the model needs to write the dialogue → action pairs
- * (docs/screenplay-format.md) and pick one truthful artifact per action, and
- * nothing else.
+ * Per turn: the exchange in both characters' real words — the user prompt
+ * (USER) and the agent's spoken prose (CLAUDE) — then what the agent did that
+ * turn: tools used, diffs with sizes and new-file markers, subagent dispatches,
+ * and command results with exit codes. That is everything the model needs to
+ * write the dialogue → action pairs from real words (docs/screenplay-format.md)
+ * and pick one truthful artifact per action, and nothing else.
  *
  * Inputs are already redacted (redaction happens in the parser, at the door),
  * so the digest is safe to send to the model as-is.
@@ -32,13 +32,28 @@ interface DetailLevel {
   toolsPerTurn: number;
   snippetChars: number;
   commandsPerTurn: number;
+  /** How many of a turn's assistant utterances to surface (0 = drop them). */
+  assistantPerTurn: number;
 }
 
 const DETAIL_LEVELS: DetailLevel[] = [
-  { promptChars: 700, toolsPerTurn: 40, snippetChars: 500, commandsPerTurn: 20 },
-  { promptChars: 400, toolsPerTurn: 16, snippetChars: 160, commandsPerTurn: 10 },
-  { promptChars: 250, toolsPerTurn: 8, snippetChars: 0, commandsPerTurn: 6 },
+  { promptChars: 700, toolsPerTurn: 40, snippetChars: 500, commandsPerTurn: 20, assistantPerTurn: 4 },
+  { promptChars: 400, toolsPerTurn: 16, snippetChars: 160, commandsPerTurn: 10, assistantPerTurn: 2 },
+  { promptChars: 250, toolsPerTurn: 8, snippetChars: 0, commandsPerTurn: 6, assistantPerTurn: 1 },
 ];
+
+/**
+ * Sample a turn's assistant utterances for the digest: the opener plus, when
+ * the turn ran long, the closer — so both ends of Claude's arc stay visible
+ * (the wrap-up line often lives in the last utterance) without dumping all of
+ * them.
+ */
+function pickAssistant(texts: string[], n: number): string[] {
+  if (n <= 0) return [];
+  if (texts.length <= n) return texts;
+  if (n === 1) return [texts[0] as string];
+  return [...texts.slice(0, n - 1), texts[texts.length - 1] as string];
+}
 
 function clamp(text: string, max: number): string {
   const collapsed = text.replace(/\s+/g, " ").trim();
@@ -100,10 +115,19 @@ function renderTurn(
   level: DetailLevel,
 ): string {
   const lines: string[] = [`## TURN ${index + 1}${timeOfDay(turn.timestamp)}`];
-  // USER is the user's side of the exchange (dialogue source for `speaker:user`);
-  // the TOOLS / DIFF / COMMAND / SUBAGENTS below are the agent's side — what it
-  // actually did that turn (dialogue source for `speaker:claude`).
+  // The turn's exchange: USER is the user's real words (dialogue source for
+  // `speaker:user`) and CLAUDE is the agent's real words (dialogue source for
+  // `speaker:claude`); the TOOLS / DIFF / COMMAND / SUBAGENTS below are what
+  // the agent DID, the artifact material and the fallback for claude lines on
+  // tool-only turns.
   lines.push(`USER: ${clamp(turn.userMessage, level.promptChars) || "(empty prompt)"}`);
+
+  if (turn.assistantText && turn.assistantText.length > 0 && level.assistantPerTurn > 0) {
+    const spoken = pickAssistant(turn.assistantText, level.assistantPerTurn).map((t) =>
+      clamp(t, level.promptChars),
+    );
+    lines.push(`CLAUDE: ${spoken.join(" · ")}`);
+  }
 
   if (tools.length > 0) {
     const shown = tools.slice(0, level.toolsPerTurn);
