@@ -9,7 +9,7 @@ you:    /movie
 claude: 🎬 rendering "the-login-bug.mp4" ... done (58s, 9 files, +412/−118)
 ```
 
-> **Status: v0.1 on npm** (`npx sessionmovie`). The design docs in [docs/](docs/) remain the source of truth for what's built next. Every feature launch ships with a movie of the feature being built — made by the tool, obviously.
+> **Status: v0.3 on npm** (`npx sessionmovie`). The design docs in [docs/](docs/) remain the source of truth for what's built next. Every feature launch ships with a movie of the feature being built — made by the tool, obviously.
 
 ## How it works
 
@@ -61,7 +61,7 @@ npx sessionmovie session.jsonl --voiceover
 
 **Key permissions matter.** A default full-access key just works. If you create a *restricted* key, it needs at least **Text to Speech** (synthesis) and **Voices: Read** (what `doctor` probes) — a fresh key that fails doctor with `HTTP 401` is almost always missing scopes, not a bad key.
 
-Knobs: `ELEVENLABS_VOICE_ID` forces one voice everywhere, `ELEVENLABS_MODEL` picks the TTS model. Per-speaker `ELEVENLABS_VOICE_USER`/`ELEVENLABS_VOICE_CLAUDE` arrive with the dialogue-only voiceover rewrite (docs/audio.md); until then, the single voice applies to everything. Synthesized audio is cached content-addressed, so re-renders of the same screenplay don't re-bill. Cost: roughly $0.10–0.30 per movie-minute of narration.
+Knobs: `ELEVENLABS_VOICE_USER`/`ELEVENLABS_VOICE_CLAUDE` give each speaker their own voice, `ELEVENLABS_VOICE_ID` is the single-voice fallback for both, `ELEVENLABS_MODEL` picks the TTS model. Synthesized audio is cached content-addressed, so re-renders of the same screenplay don't re-bill. Cost: roughly $0.10–0.30 per movie-minute of narration.
 
 ## Docs
 
