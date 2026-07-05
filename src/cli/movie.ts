@@ -17,8 +17,8 @@ import { ttsConfigFromEnv } from "../voiceover/tts.js";
 // genre auto-pick block (feat/genre-rules, issue #10)
 import { compositionFor } from "../genre/compositions.js";
 // ── T5 pipeline wiring: punch-up → beat-quantize → genre-voiced TTS ──
-import { BEATS as CLASSIC_BEATS } from "../../remotion/src/audio/beats.js";
-import { BEATS as QUEST_BEATS } from "../../remotion/src/audio/questBeats.js";
+import { BEATS as CLASSIC_BEATS } from "../../remotion/src/audio/beatData.js";
+import { BEATS as QUEST_BEATS } from "../../remotion/src/audio/questBeatData.js";
 import { quantizeToBeats } from "../quantize.js";
 import { voiceForGenre } from "../voiceover/manifest.js";
 import { GENRES, isGenre, pickGenre, signalsFrom, type Genre } from "../genre/rules.js";
