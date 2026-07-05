@@ -1,6 +1,5 @@
 {
   "fixture": "aborted-login.jsonl",
-  "autoGenre": "classic",
   "totals": {
     "turns": 0,
     "toolCalls": 0,

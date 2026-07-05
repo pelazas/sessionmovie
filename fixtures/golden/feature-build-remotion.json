@@ -1,6 +1,5 @@
 {
   "fixture": "feature-build-remotion.jsonl",
-  "autoGenre": "classic",
   "totals": {
     "turns": 2,
     "toolCalls": 80,
@@ -12,9 +11,12 @@
   },
   "result": {
     "kind": "screenplay",
-    "sceneCount": 4,
+    "sceneCount": 7,
     "sceneTypes": [
       "title",
+      "dialogue",
+      "action",
+      "action",
       "action",
       "showcase",
       "stats"
