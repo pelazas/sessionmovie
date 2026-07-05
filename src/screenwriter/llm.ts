@@ -57,7 +57,12 @@ function loadPromptTemplate(): string {
 }
 
 function buildPrompt(digest: string, targetDurationSec: number): string {
+  // Strip the leading dev-doc HTML comment BEFORE substituting. It documents
+  // the {{DIGEST}} / {{TARGET_DURATION_SEC}} placeholders literally, so leaving
+  // it in would inject the whole digest a second time (and ship internal notes
+  // like the vN-vs-vN changelog to the model). The prompt sent is body only.
   return loadPromptTemplate()
+    .replace(/<!--[\s\S]*?-->\n*/g, "")
     .replaceAll("{{TARGET_DURATION_SEC}}", String(targetDurationSec))
     .replaceAll("{{DIGEST}}", digest);
 }
