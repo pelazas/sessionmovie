@@ -16,10 +16,9 @@ const base: GenreSignals = {
 };
 
 describe("pickGenre — one test per rule branch, top-down", () => {
-  it("quest: ≥3 failed commands but the final run is green", () => {
+  it("≥3 failed commands but the final run is green falls through past horror (no quest anymore)", () => {
     const pick = pickGenre({ ...base, failedCommands: 3, finalCommandGreen: true });
-    assert.equal(pick.genre, "quest");
-    assert.equal(pick.reason, "3 failed commands, final run green");
+    assert.equal(pick.genre, "classic");
   });
 
   it("horror: ≥3 failed commands and it never went green", () => {
@@ -51,20 +50,20 @@ describe("pickGenre — one test per rule branch, top-down", () => {
     assert.equal(pick.reason, "no strong signal — the reference look");
   });
 
-  it("precedence: quest wins over a would-be nature-doc shape", () => {
+  it("precedence: horror wins over a would-be nature-doc shape", () => {
     const pick = pickGenre({
       ...base,
       failedCommands: 4,
-      finalCommandGreen: true,
+      finalCommandGreen: false,
       readCalls: 40,
       editCalls: 1,
       durationSec: 3600,
     });
-    assert.equal(pick.genre, "quest");
+    assert.equal(pick.genre, "horror");
   });
 
-  it("thresholds: 2 failures is not a quest", () => {
-    const pick = pickGenre({ ...base, failedCommands: 2, finalCommandGreen: true });
+  it("thresholds: 2 failures is not enough for horror", () => {
+    const pick = pickGenre({ ...base, failedCommands: 2, finalCommandGreen: false });
     assert.equal(pick.genre, "classic");
   });
 
@@ -138,10 +137,6 @@ describe("genre → composition contract table", () => {
   it("classic maps to the Classic composition", () => {
     assert.equal(GENRE_COMPOSITIONS.classic, "Classic");
     assert.deepEqual(compositionFor("classic"), { compositionId: "Classic", shipped: true });
-  });
-
-  it("shipped genres resolve to their own composition", () => {
-    assert.deepEqual(compositionFor("quest"), { compositionId: "Quest", shipped: true });
   });
 
   it("unshipped genres fall through to Classic, flagged", () => {
