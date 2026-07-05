@@ -5,12 +5,12 @@ import type { VoiceoverManifest } from "../../../src/voiceover/types";
 import { DEFAULT_IDENTITY, IdentityContext } from "../characters/identity";
 import { SceneTimeContext } from "./ClockChip";
 import { CompressionContext, StatCardsContext, TitleMetaContext } from "./sidecars";
-import { sceneLocalCue } from "./voiceoverSync";
+import { sceneLocalTrack } from "./voiceoverSync";
 import type { Scene, Screenplay } from "../screenplay";
 import { theme } from "../theme";
 import { flash } from "../motion";
 import { sceneCutFrames, sceneFrames } from "../timing";
-import { VoiceoverCueContext, type GenrePack } from "./types";
+import { DialogueTrackContext, type GenrePack } from "./types";
 
 /**
  * One composition body shared by every pack: audio layer + a Series of
@@ -93,18 +93,22 @@ export const makePackComposition = (pack: GenrePack): React.FC<Screenplay> => {
         <Series>
           {screenplay.scenes.map((scene, i) => {
             const frames = sceneFrames(scene, fps);
-            // voiceover cue plumbing (feat/vo-sync): resolve this scene's cue
-            // to scene-local frames once; Caption consumes it via context.
-            const cue = screenplay.voiceover?.cues.find((c) => c.sceneIndex === i);
+            // dialogue voiceover plumbing (rewrite/voiceover-dialogue, PR-H):
+            // resolve this dialogue scene's per-line track to scene-local
+            // frames once; Dialogue.tsx consumes it via context, falling
+            // back to the no-VO schedule when null.
+            const track = scene.type === "dialogue" && screenplay.voiceover
+              ? sceneLocalTrack(screenplay.voiceover.lineCues, i, fps)
+              : null;
             return (
               <Series.Sequence key={i} durationInFrames={frames}>
-                <VoiceoverCueContext.Provider value={cue ? sceneLocalCue(cue, scene, fps) : null}>
+                <DialogueTrackContext.Provider value={track}>
                   {/* sceneTimes sidecar (feat/text-economy): pre-formatted
                       HH:MM per scene, or null — ClockChip consumes it. */}
                   <SceneTimeContext.Provider value={screenplay.sceneTimes?.[i] ?? null}>
                     <SceneRenderer scene={scene} screenplay={screenplay} durationInFrames={frames} />
                   </SceneTimeContext.Provider>
-                </VoiceoverCueContext.Provider>
+                </DialogueTrackContext.Provider>
               </Series.Sequence>
             );
           })}

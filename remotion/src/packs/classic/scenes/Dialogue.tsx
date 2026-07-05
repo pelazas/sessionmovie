@@ -5,30 +5,29 @@ import { dialogueBubbleSchedule } from "../../../timing";
 import { Character } from "../../../characters/Character";
 import type { DialogueScene, Emotion } from "../../../screenplay";
 import { theme } from "../../../theme";
-import { Caption } from "../../Caption";
 import { ClockChip } from "../../ClockChip";
-import { VoiceoverCueContext } from "../../types";
+import { DialogueTrackContext } from "../../types";
 
 // The characters' main stage: both stand at the bottom (user left/coral
 // border, claude right/neutral border) while speech bubbles pop in above
 // them. Bubble border color + puppet side identify the speaker; the
-// speaking puppet wears the line's emotion.
+// speaking puppet wears the line's emotion. No bottom Caption here — the
+// bubble IS the caption (no word-karaoke either: full-bright text, per-line
+// sync only).
 export const Dialogue: React.FC<{
   scene: DialogueScene;
   durationInFrames: number;
 }> = ({ scene, durationInFrames }) => {
   const frame = useCurrentFrame();
-  const cue = useContext(VoiceoverCueContext);
 
-  // THE VO SEAM (PR-H): this scene calls ONLY dialogueBubbleSchedule — today
-  // it's a thin wrapper over dialogueLeadSchedule (one caption cue drives the
-  // whole scene's lead-in); PR-H reimplements the seam to start each bubble
-  // at its own line's cue without touching this file.
-  const { usable, lineStart } = dialogueBubbleSchedule(
-    scene,
-    durationInFrames,
-    cue ? cue.endFrame : null,
-  );
+  // THE VO SEAM (PR-H): reads the per-line track when --voiceover measured
+  // this scene, else falls back to dialogueBubbleSchedule (the no-VO
+  // schedule, always called with cueEndFrame null — the track supersedes it
+  // entirely rather than shifting a lead-in).
+  const track = useContext(DialogueTrackContext);
+  const fallback = dialogueBubbleSchedule(scene, durationInFrames, null); // PR-E seam, no-VO
+  const lineStart = (i: number): number =>
+    track ? (track.find((t) => t.lineIndex === i)?.startFrame ?? fallback.lineStart(i)) : fallback.lineStart(i);
 
   // The line currently "on the air" drives the puppets.
   let activeIndex = -1;
@@ -54,12 +53,6 @@ export const Dialogue: React.FC<{
     return -1;
   };
 
-  // Closing-beat caption opacity for cueless captions (with a cue, Caption
-  // runs narration-driven in sync mode and ignores this schedule opacity).
-  const captionIn = interpolate(frame, [usable, usable + 18], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
   const puppetsIn = interpolate(frame, [0, 12], [0, 1], {
     easing: EASE,
     extrapolateLeft: "clamp",
@@ -164,8 +157,6 @@ export const Dialogue: React.FC<{
       </div>
 
       <ClockChip />
-
-      {scene.caption ? <Caption text={scene.caption} opacity={captionIn} /> : null}
     </AbsoluteFill>
   );
 };
