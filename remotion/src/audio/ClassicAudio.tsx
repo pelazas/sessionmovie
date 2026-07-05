@@ -12,14 +12,6 @@ export const SHARED_SFX: Record<SfxKind, string> = {
   pass: "audio/sfx-pass-chime.mp3",
   // feat/effects (all CC0, CREDITS.md)
   whoosh: "audio/sfx-transition-whoosh.mp3",
-  // PR-I deleted sfx-tension-drone's audio file (the no-genre rewrite drops
-  // the drone event), but `SfxKind` still has "drone" as a member and this
-  // is a full Record<SfxKind, string> — PR-E owns events.ts/SfxKind and
-  // removes this entry when it drops "drone" from the type. Until then this
-  // points at an existing asset (reused, not a new file) so the map stays
-  // type-correct; the drone cue itself is scheduled to become unreachable
-  // dead code in the same PR, not fixed here.
-  drone: "audio/sfx-fail-thud.mp3",
   stinger: "audio/sfx-end-stinger.mp3",
 };
 
@@ -30,7 +22,6 @@ export const SHARED_SFX_VOLUMES: Record<SfxKind, number> = {
   pass: 0.85,
   // feat/effects
   whoosh: 0.55,
-  drone: 0.4,
   stinger: 0.75,
 };
 
